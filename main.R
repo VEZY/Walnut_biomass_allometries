@@ -27,6 +27,6 @@ MTG$MTG$attributesAll
 
 MTG$MTG$node_2
 MTG$MTG$node_2$node_3$node_3+--
-# To transform into a data.frame:
-mtg_df = ToDataFrameTable(MTG$MTG, "lenght", "diamater","ID")
+  # To transform into a data.frame:
+  mtg_df = ToDataFrameTable(MTG$MTG, "lenght", "diamater","ID")
 head(mtg_df, 30)

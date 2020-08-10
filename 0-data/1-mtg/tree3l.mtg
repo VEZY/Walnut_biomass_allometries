@@ -58,7 +58,6 @@ ENTITY-CODE									length	diameter	year	comment	ID	fresh_weight	volume_bh	error
 					^/S1				14.5	5.76			2276											
 				^<S4					13.5	5.03			2277											
 			^<S2						0	8.5			2278											
-													2279											
 		^<S3							42.5	47			2280											
 			+A3										2281											
 			^/S1						26	7.3			2282											
