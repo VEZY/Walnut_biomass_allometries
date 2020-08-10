@@ -1,0 +1,67 @@
+CODE:	FORM-A																	
+CLASSES :																		
+SYMBOL	SCALE	DECOMPOSITION	INDEXATION	DEFINITION														
+$	0	NOTCONNECTED	FREE	EXPLICIT														
+Individu	1	LINEAR	FREE	EXPLICIT														
+A	2	LINEAR	FREE	EXPLICIT														
+S	3	LINEAR	FREE	EXPLICIT														
+DESCRIPTION :																		
+LEFT	RIGHT	RELTYPE	MAX															
+A	A	<	0															
+A	A	+	?															
+S	S	<	?															
+S	S	+	?															
+FEATURES:																		
+NAME	TYPE																	
+length	REAL																	
+diameter	REAL																	
+year	INT																	
+comment 	STRING																	
+ID	REAL																	
+fresh_weight	REAL																	
+volume_bh	REAL																	
+error_bh	REAL																	
+volume_ph	REAL																	
+error_ph	REAL																	
+volume_phse	REAL																	
+error_phse 	REAL																	
+dry_weight_wood	REAL																	
+dry_weight_bark	REAL																	
+dry_weight_p2	REAL																	
+MTG:																		
+ENTITY-CODE				length	diameter	year	comment	ID	fresh_weight	volume_bh	error_bh	volume_ph	error_ph	volume_phse 	error_phse 	dry_weight_wood	dry_weight_bark	dry_weight_p2
+/Individu																		
+	/A1					2018		2137										
+	^/S1			156	38	2018		2138	8.7087	10.073	-0.8756	10.319	-0.2981	8.468	-0.01815	4.3514	0.5499	4.9013
+		+A2				2018		2139										
+		^/S1		2.5	4.5	2018		2140										
+	^<S2			6.5	33	2018		2141	5.0481	6.653	-1.1	6.952	-0.1922	5.422	-0.203	2.3461	0.4337	2.7798
+		+A2				2018		2142										
+		^/S1		7	5.4	2018		2143										
+	^<S3			11.5	32	2018		2144										
+		+A2				2018		2145										
+		^/S1		136.5	10.5	2018		2146	2.3415	3.243	-0.1747	3.328	-0.2044	2.393	-0.1353	0.9005	0.3706	1.2711
+	^<S4			10	32	2018		2147										
+		+A2				2018		2148										
+		^/S1		119	14.9	2018		2149	3.7081	4.707	-0.2058	5.009	-0.162	3.656	-0.3446	1.5894	0.4458	2.0352
+	^<S5			6	30	2018		2150										
+		+A2				2018		2151										
+		^/S1		123	11.2	2018		2152	2.7421	3.454	-0.1471	3.566	-0.252	2.491	-0.1071	1.0727	0.4186	1.4913
+	^<S6			10	27	2018		2153										
+		+A2				2018		2154										
+		^/S1		65	6.6	2018		2155										
+	^<S7			17.5	26	2018		2156	5.8797	7.249	-0.4839	7.624	-0.3297	5.831	-0.1442	2.6802	0.5219	3.2021
+		+A2				2018		2157										
+		^/S1		86.5	9.3	2018		2158	1.5432	2.013	-0.0858	2.079	-0.1099	1.467	-0.0703	0.5747	0.2382	0.8129
+	^<S8			9.5	24.5	2018		2159										
+		+A2				2018		2160										
+		^/S1		64.5	7.1	2018		2161										
+	^<S9			5	24.4	2018		2162										
+		+A2				2018		2163										
+		^/S1		47	7.2	2018		2164										
+	^<S10			2	26.2	2018		2165										
+		+A2				2018		2166										
+		^/S1		13.5	5	2018		2167	0.4073	0.505	-0.0298	0.515	-0.0294	0.302	-0.0248	0.0875	0.0909	0.1784
+	^<S11			135	19.1	2019		2168	3.4249	4.538	-0.0614	4.601	-0.4266	3.285	-0.1119	1.4002	0.3751	1.7753
+																		
+																		
