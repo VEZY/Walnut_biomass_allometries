@@ -7,7 +7,18 @@
 
 source("1-code/0-function.R")
 library(tidyverse)
-# Depencies: data.table, xlsx
+# Depencies (packages): data.table, readxl
 
 # Read mtg from an xlsx file, write it in an mtg file
 all_xlsx_to_mtg("0-data/0-raw","0-data/1-mtg/")
+
+
+# Try to import the mtg files just to see if there are any issues:
+
+# mtg_files = list.files("0-data/1-mtg",pattern = "mtg$",
+#                        full.names = TRUE)
+# 
+# for (i in mtg_files) {
+#   mtg = read_mtg(file = i)
+# }
+

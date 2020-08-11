@@ -13,7 +13,7 @@
 #'
 #' @examples
 xlsx_to_mtg = function(xlsx_file, mtg_file){
-  mtg = xlsx::read.xlsx(xlsx_file,sheetIndex = 1,header = FALSE)
+  mtg = readxl::read_excel(xlsx_file,sheet = 1,col_names = FALSE)
   data.table::fwrite(mtg, file = mtg_file, sep = "\t",col.names = FALSE)
 }
 
