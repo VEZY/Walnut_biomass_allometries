@@ -34,7 +34,7 @@ ENTITY-CODE									length	diameter	year	comment	ID	fresh_weight	water_sprout	fr
 /Individu																		
 	/A1												196					
 	^/S1								30	54.7			197	8.7949999999999999	0.64600000000000002	1.0760000000000001		3.6429999999999998
-		/A2											455					
+		+A2											455					
 		^/S1							26.8	26.4		insertion_A1B1	456					
 			+A3										457					
 			^/S1						18	7.8			458					
