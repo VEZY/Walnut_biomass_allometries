@@ -2,6 +2,8 @@
 # Author: M. Millan, J. Dauzat and R. Vezy
 # Date of creation: 12/08/2020
 
+library(data.table)
+library(tidyverse)
 
 # Read the data.frame -----------------------------------------------------
 
