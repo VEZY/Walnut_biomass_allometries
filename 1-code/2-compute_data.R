@@ -42,7 +42,8 @@ names(mtgs) = basename(mtg_files)%>%gsub(".mtg","",.)
 # Adding new variables ----------------------------------------------------
 
 # We will use as factors: diameter, length, section index on axis (from 1 at the tip
-# until max at the base), the axis length, and the segment diameter / axis length
+# until max at the base), the axis length, the segment volume, and the total volume
+# of the sub-tree supported by the segment.
 
 df_mtg = lapply(mtgs, compute_data_mtg)
 

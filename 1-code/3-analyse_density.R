@@ -14,7 +14,7 @@ df_mtg%>%
 
 df_mtg%>%
   dplyr::filter(ID != 1500 & ID != 1515 & ID != 4296)%>%
-  ggplot(aes(x= diameter, y= density))+
+  ggplot(aes(x= segment_index_on_axis, y= density))+
   geom_point(aes(color = topological_order))
 
 mtg_df%>%
