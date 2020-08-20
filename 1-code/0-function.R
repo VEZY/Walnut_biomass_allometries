@@ -47,7 +47,7 @@ all_xlsx_to_mtg= function(xlsx_dir, mtg_dir){
 compute_data_mtg = function(mtg){
   # Compute the wood density:
   
-  if("dry_weight_p1" %in% mtg$features$NAME){
+  if("dry_weight_p1" %in% attr(mtg,"features")$NAME){
     mutate_mtg(mtg, dry_weight = node$dry_weight_p1,.symbol = "S")
   }else{
     mutate_mtg(mtg, dry_weight = node$dry_weight_p2,.symbol = "S")
@@ -71,9 +71,7 @@ compute_data_mtg = function(mtg){
   # add relative change of volume after rehydrating
   mutate_mtg(mtg, volume_delta = (node$volume_ph-node$volume_bh)/node$volume_bh,
              .symbol = "S")
-  
-  
-  
+
   
   # Topological order:
   topological_order(mtg,ascend = FALSE)
@@ -82,32 +80,36 @@ compute_data_mtg = function(mtg){
   
   # Compute the index of each segment on the axis in a basipetal way (from tip to base)
   mutate_mtg(mtg, 
-             segment_index_on_axis = length(get_descendants_values(attribute = ".symbol", symbol = "S",
-                                                                   link = c("/", "<"), 
-                                                                   recursive = FALSE))+1,
+             segment_index_on_axis = length(descendants(attribute = ".symbol", symbol = "S",
+                                                        link = c("/", "<"), 
+                                                        continue = FALSE))+1,
              .symbol = "S")
   
   # Compute the total length of the axis:
   mutate_mtg(mtg, 
-             axis_length = sum(get_descendants_values(attribute = "length", symbol = "S", link = c("/", "<"), recursive = FALSE)),
+             axis_length = sum(decompose(attribute = "length", symbol = "S")),
              .symbol = "A")
   # Associate the axis length to each segment:
-  mutate_mtg(mtg, axis_length = get_parent_value(attribute = "axis_length", symbol = "A"), .symbol = "S")
+  mutate_mtg(mtg, axis_length = parent(attribute = "axis_length", symbol = "A"), .symbol = "S")
   
   mutate_mtg(mtg, volume = pi*(((node$diameter/10)/2)^2)*node$length, .symbol = "S") # volume of the segment in cm3
   
   
   # added JD
   mutate_mtg(mtg, cross_section = pi*(((node$diameter/10)/2)^2), .symbol = "S") # area of segment cross section  in cm2
-  mutate_mtg(mtg, cross_sec_children = sum(get_children_values(attribute = "cross_section", symbol = "S")), .symbol = "S")
+  mutate_mtg(mtg, cross_sec_children = sum(children(attribute = "cross_section", symbol = "S")), .symbol = "S")
+  
+  # Cross section of the terminal nodes for each node
+  mutate_mtg(mtg, cross_sec_leaves = sum(leaves(attribute = "cross_section", symbol = "S")), 
+             .symbol = "S")  
   # TODO 
   # somme des sections des UC terminales; a plotter vs section du porteur
   # Puis tester avec une valeur unique pour toutes les UC
   
   
   # Volume of wood the section bears (all the sub-tree):
-  mutate_mtg(mtg, volume_subtree = sum(get_descendants_values(attribute = "volume", symbol = "S",
-                                                              self = TRUE)), .symbol = "S")
+  mutate_mtg(mtg, volume_subtree = sum(descendants(attribute = "volume", symbol = "S",
+                                                   self = TRUE)), .symbol = "S")
   
   # segment diameter / axis length:
   mutate_mtg(mtg, d_seg_len_ax_ratio = node$diameter / node$axis_length, .symbol = "S")
@@ -120,7 +122,7 @@ compute_data_mtg = function(mtg){
   # data.tree::ToDataFrameTree(mtg$MTG,"ID","density","density_ph","diameter","length","axis_length",
   #                            "topological_order","segment_index_on_axis","dry_weight",
   #                            "volume","volume_subtree")
-  data.tree::ToDataFrameTree(mtg$MTG,"ID","density","density_ph","volume_ph","volume_phse","volume_delta","diameter","length","axis_length",
+  data.tree::ToDataFrameTree(mtg,"ID","density","density_ph","volume_ph","volume_phse","volume_delta","diameter","length","axis_length",
                              "topological_order","segment_index_on_axis","dry_weight","dry_weight_bark","ratio_bark_wood",
                              "volume","volume_subtree","cross_section","cross_sec_children")
 }

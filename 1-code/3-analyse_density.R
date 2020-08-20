@@ -5,7 +5,6 @@ library(ggplot2)
 library(magrittr)
 library(data.table)
 library(tidyverse)
-# install.packages("tidyselect")
 
 # Read the data.frame -----------------------------------------------------
 
@@ -76,11 +75,13 @@ df_mtg%>%
 df_mtg%>%
   # dplyr::filter(ID != 1500 & ID != 1515)%>%
   dplyr::filter(density < 1.0 & density > 0.2)%>%
-  # dplyr::filter(branch != "tree1h")%>%
+  # dplyr::filter(branch == "tree1h")%>%
   ggplot(aes(x= density, y= volume_delta))+
   # facet_wrap(.~branch, scales = "free")+
   # geom_point(aes(color = segment_index_on_axis))
-  geom_point(aes(color = factor(branch)))
+  geom_point(aes(color = branch))
+
+
 df_mtg%>%
   dplyr::filter(density < 1.0 & density > 0.2)%>%
   # ggplot(aes(x= dry_weight, y= volume_delta))+
