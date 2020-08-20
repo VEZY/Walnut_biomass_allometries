@@ -1,9 +1,11 @@
 # Aim: Analyze the variability of wood density along branches from mtg data.
 # Author: M. Millan, J. Dauzat and R. Vezy
 # Date of creation: 12/08/2020
-
+library(ggplot2)
+library(magrittr)
 library(data.table)
 library(tidyverse)
+# install.packages("tidyselect")
 
 # Read the data.frame -----------------------------------------------------
 
@@ -44,28 +46,128 @@ df_mtg%>%
   facet_wrap(.~branch, scales = "free")+
   geom_point(aes(color = segment_index_on_axis))
 
+
+# VOLUME
+# volume du à écorce
 df_mtg%>%
-  dplyr::filter(ID != 1500 & ID != 1515)%>%
-  ggplot(aes(x= volume_ph, y= density))+
-  facet_wrap(.~branch, scales = "free")+
-  geom_point(aes(color = segment_index_on_axis))
+  dplyr::filter(ID != 1500 & ID != 1515 & ID != 4296)%>%
+  ggplot(aes(x= volume_phse, y= volume_ph))+
+  # facet_wrap(.~branch)+
+  geom_abline(slope = 1,intercept = 0)+
+  geom_point(aes(color = branch))
+df_mtg%>%
+  dplyr::filter(ID != 1500 & ID != 1515 & ID != 4296 & volume_phse/volume_ph<1.1)%>%
+  ggplot(aes(x= diameter, y= (volume_ph-volume_phse)/volume_ph))+
+  # facet_wrap(.~branch)+
+  # geom_abline(slope = 1,intercept = 0)+
+  geom_point(aes(color = branch))
+
+
+# Variation de volume avec hydratation
+# Different delta de volume suivant branches 
+# Peut-etre traitements mais prob avec tree1h: volumes peuvent diminuer après rehydratation
+df_mtg%>%
+  # dplyr::filter(ID != 1500 & ID != 1515)%>%
+  dplyr::filter(density < 1.0 & density > 0.2)%>%
+  ggplot(aes(x= density, y= volume_delta))+
+  geom_point(aes(color = diameter))+
+  scale_color_viridis_c()
 
 df_mtg%>%
-  dplyr::filter(density < 1.0)%>%
+  # dplyr::filter(ID != 1500 & ID != 1515)%>%
+  dplyr::filter(density < 1.0 & density > 0.2)%>%
+  # dplyr::filter(branch != "tree1h")%>%
+  ggplot(aes(x= density, y= volume_delta))+
+  # facet_wrap(.~branch, scales = "free")+
+  # geom_point(aes(color = segment_index_on_axis))
+  geom_point(aes(color = factor(branch)))
+df_mtg%>%
+  dplyr::filter(density < 1.0 & density > 0.2)%>%
+  # ggplot(aes(x= dry_weight, y= volume_delta))+
+  ggplot(aes(x= diameter, y= volume_delta))+
+  geom_point(aes(color = factor(branch)))
+
+
+
+
+# density wood only vs density with bark
+df_mtg%>%
+  dplyr::filter(density < 1.0 & density > 0.2)%>%
+  # dplyr::filter(branch != "tree1h")%>%
+  ggplot(aes(x= density, y= density_wood_only))+
+  geom_point(aes(color = factor(branch), size=3))
+df_mtg%>%
+  dplyr::filter(density < 1.0 & density > 0.2)%>%
+  # dplyr::filter(branch != "tree1h")%>%
+  ggplot(aes(x= diameter, y= density_wood_on_tot))+
+  geom_point(aes(color = factor(branch), size=3))
+
+
+# Bois versus écorce et diamètre de l'échantillon
+df_mtg%>%
+  dplyr::filter(density < 1.0 & density > 0.2)%>%
+  ggplot(aes(x= dry_weight, y= dry_weight_bark))+
+  geom_point(aes(color = factor(branch)))
+
+df_mtg%>%
+  dplyr::filter(density < 1.0 & density > 0.2)%>%
+  ggplot(aes(x= diameter, y= ratio_bark_wood))+
+  geom_point(aes(color = factor(branch)))
+
+df_mtg%>%
+  dplyr::filter(density < 1.0 & density > 0.2)%>%
+  ggplot(aes(x= ratio_bark_wood, y= volume_delta))+
+  geom_point(aes(color = factor(branch)))
+df_mtg%>%
+  dplyr::filter(density < 1.0 & density > 0.2)%>%
+  ggplot(aes(x= ratio_bark_wood, y= volume_delta))+
+  geom_point(aes(color = diameter))+
+  scale_color_viridis_c()
+
+
+# df_mtg%>%
+#   dplyr::filter(density < 1.0 & branch != "tree1h")%>%
+#   ggplot(aes(x= density, y= density_ph))+
+#   geom_abline(slope = 1,intercept = 0)+
+#   # facet_wrap(.~branch, scales = "free")+
+#   # geom_point(aes(color = volume))+
+#   geom_point(aes(color = volume_delta))+
+#   scale_color_viridis_c()
+df_mtg%>%
+  dplyr::filter(density < 1.0 & branch != "tree1h" & diameter<100)%>%
   ggplot(aes(x= density, y= density_ph))+
   geom_abline(slope = 1,intercept = 0)+
   # facet_wrap(.~branch, scales = "free")+
+  # geom_point(aes(color = volume))+
+  geom_point(aes(color = factor(branch)))
+
+
+
+df_mtg%>%
+  # dplyr::filter(density < 1.0)%>%
+  # dplyr::filter(density < 1.0 & branch != "tree1h")%>%
+  dplyr::filter(density < 1.0 & density_ph < 0.6 & branch != "tree1h")%>%
+  # ggplot(aes(x= diameter, y= density_ph/density))+
+  ggplot(aes(x= diameter, y= density))+
+  # geom_abline(slope = 1,intercept = 0)+
+  # facet_wrap(.~branch, scales = "free")+
   geom_point(aes(color = volume))+
   scale_color_viridis_c()
 
 
 df_mtg%>%
-  dplyr::filter(density < 1.0)%>%
-  ggplot(aes(x= diameter, y= density_ph/density))+
+  dplyr::filter(diameter<100 & cross_sec_children<65)%>%
+  ggplot(aes(x= cross_section, y= cross_sec_children))+
   geom_abline(slope = 1,intercept = 0)+
-  # facet_wrap(.~branch, scales = "free")+
-  geom_point(aes(color = volume))+
-  scale_color_viridis_c()
+  geom_point(aes(color = factor(topological_order)))
+
+
+
+
+# faire diametre fct du nombre de "leaf"
+
+
+
 
 # autoplot(tree1l)
 # plotly_mtg(tree1l)

@@ -57,6 +57,24 @@ compute_data_mtg = function(mtg){
              density_ph = node$dry_weight/node$volume_ph,
              .symbol = "S")
   
+  
+  # density of wood without bark taking account for wood dry weight without bark
+  # (Note: without considering the vume of bark)
+  # mutate_mtg(mtg, density_wood_only = node$dry_weight_wood/node$volume_bh,
+  #            .symbol = "S")
+  # 
+  # mutate_mtg(mtg, density_wood_on_tot = node$density_wood_only/node$density,
+  #            .symbol = "S")
+  
+  
+  
+  # add relative change of volume after rehydrating
+  mutate_mtg(mtg, volume_delta = (node$volume_ph-node$volume_bh)/node$volume_bh,
+             .symbol = "S")
+  
+  
+  
+  
   # Topological order:
   topological_order(mtg,ascend = FALSE)
   # We use basipetal topological order (from tip to base) to allow comparisons between branches of 
@@ -78,6 +96,15 @@ compute_data_mtg = function(mtg){
   
   mutate_mtg(mtg, volume = pi*(((node$diameter/10)/2)^2)*node$length, .symbol = "S") # volume of the segment in cm3
   
+  
+  # added JD
+  mutate_mtg(mtg, cross_section = pi*(((node$diameter/10)/2)^2), .symbol = "S") # area of segment cross section  in cm2
+  mutate_mtg(mtg, cross_sec_children = sum(get_children_values(attribute = "cross_section", symbol = "S")), .symbol = "S")
+  # TODO 
+  # somme des sections des UC terminales; a plotter vs section du porteur
+  # Puis tester avec une valeur unique pour toutes les UC
+  
+  
   # Volume of wood the section bears (all the sub-tree):
   mutate_mtg(mtg, volume_subtree = sum(get_descendants_values(attribute = "volume", symbol = "S",
                                                               self = TRUE)), .symbol = "S")
@@ -85,7 +112,15 @@ compute_data_mtg = function(mtg){
   # segment diameter / axis length:
   mutate_mtg(mtg, d_seg_len_ax_ratio = node$diameter / node$axis_length, .symbol = "S")
   
-  data.tree::ToDataFrameTree(mtg$MTG,"ID","density","density_ph","diameter","length","axis_length",
-                             "topological_order","segment_index_on_axis","dry_weight",
-                             "volume","volume_subtree")
+  
+  # ratio weight bark/wood
+  mutate_mtg(mtg, ratio_bark_wood = node$dry_weight_bark / node$dry_weight, .symbol = "S")
+  
+  
+  # data.tree::ToDataFrameTree(mtg$MTG,"ID","density","density_ph","diameter","length","axis_length",
+  #                            "topological_order","segment_index_on_axis","dry_weight",
+  #                            "volume","volume_subtree")
+  data.tree::ToDataFrameTree(mtg$MTG,"ID","density","density_ph","volume_ph","volume_phse","volume_delta","diameter","length","axis_length",
+                             "topological_order","segment_index_on_axis","dry_weight","dry_weight_bark","ratio_bark_wood",
+                             "volume","volume_subtree","cross_section","cross_sec_children")
 }
