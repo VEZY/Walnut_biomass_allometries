@@ -8,7 +8,7 @@ library(tidyverse)
 
 # Read the data.frame -----------------------------------------------------
 
-df_mtg = fread("2-results/density/density_data.csv", data.table = FALSE)
+df_mtg = fread("2-results/data.csv", data.table = FALSE)
 
 df_mtg%>%
   dplyr::filter(ID != 1500 & ID != 1515 & ID != 4296)%>%
