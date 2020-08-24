@@ -55,8 +55,15 @@ compute_data_mtg = function(mtg){
   
   mutate_mtg(mtg, density = node$dry_weight/node$volume_bh,
              density_ph = node$dry_weight/node$volume_ph,
+             density_ph_wood = node$dry_weight_wood/node$volume_phse,
+             density_ph_bark = node$dry_weight_bark/(node$volume_ph-node$volume_phse),
              .symbol = "S")
   
+  # ======== total pathlength of sub-tree):
+  mutate_mtg(mtg, pathlength_subtree = sum(descendants(attribute = "length", symbol = "S",
+                                                                  self = TRUE)), .symbol = "S")
+  # xxxxxxxxxxxxxxxxxxxxxxx
+  mutate_mtg(mtg, number_leaves = length(leaves(attribute = "topological_order", symbol = "S")), .symbol = "S")
   
   # density of wood without bark taking account for wood dry weight without bark
   # (Note: without considering the vume of bark)
