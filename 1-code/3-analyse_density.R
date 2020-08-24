@@ -125,6 +125,153 @@ df_mtg%>%
   geom_point(aes(color = diameter))+
   scale_color_viridis_c()
 
+# dry weight wood and bark
+df_mtg%>%
+  dplyr::filter(density < 1.0 & density > 0.2)%>%
+  ggplot(aes(x= dry_weight_wood, y= dry_weight_bark))+
+  geom_point(aes(color = diameter))+
+  scale_color_viridis_c()
+df_mtg%>%
+  dplyr::filter(density < 1.0 & density > 0.2)%>%
+  ggplot(aes(x= diameter, y= dry_weight_bark/(dry_weight_wood+dry_weight_bark)))+
+  geom_point(aes(color = factor(branch)))
+# == ratio poids sec écorce / poids sec bois
+df_mtg%>%
+  dplyr::filter(density < 1.0 & density > 0.2)%>%
+  ggplot(aes(x= diameter, y= dry_weight_bark/dry_weight_wood))+
+  geom_point(aes(color = factor(branch)))
+# == ratio volume écorce / volume bois
+df_mtg%>%
+  dplyr::filter(density < 1.0 & density > 0.2)%>%
+  ggplot(aes(x= diameter, y= (volume_ph-volume_phse)/volume_phse))+
+  geom_point(aes(color = factor(branch)))
+
+# VOLUME_PH de bois et écorce
+# == ratio volumePH bark/total
+df_mtg%>%
+  dplyr::filter(density < 1.0 & density > 0.2)%>%
+  ggplot(aes(x= diameter, y= (volume_ph-volume_phse)/volume_ph))+
+  geom_point(aes(color = factor(branch)), size=3)+ylim(0,0.6)
+# == ratio poidsPH bark/poids total
+df_mtg%>%
+  dplyr::filter(density < 1.0 & density > 0.2)%>%
+  ggplot(aes(x= diameter, y= dry_weight_bark/(dry_weight_bark+dry_weight_wood)))+
+  geom_point(aes(color = factor(branch)), size=3)+ylim(0,0.6)
+# == Comparaison des ratios des contribution de bark sur total pour poids et volume
+df_mtg%>%
+  dplyr::filter(density < 1.0 & density > 0.2)%>%
+  ggplot(aes(x= dry_weight_bark/(dry_weight_bark+dry_weight_wood), y= (volume_ph-volume_phse)/volume_ph))+
+  # geom_point(aes(shape=factor(branch), color = factor(branch)), size=3)+ylim(0,0.6)
+  geom_abline(slope = 1,intercept = 0)+
+  geom_point(aes(color = factor(branch)), size=3)+ylim(0,0.6)+ xlim(0,0.6)
+# == Rapport des ratios pour poids et volume
+df_mtg%>%
+  dplyr::filter(density < 1.0 & density > 0.2)%>%
+  ggplot(aes(x=diameter, y=((volume_ph-volume_phse)/volume_ph) / (dry_weight_bark/(dry_weight_bark+dry_weight_wood))))+
+  geom_point(aes(color = factor(branch)), size=3) + ylim(0,2)
+
+
+# == density wood post hydratation
+df_mtg%>%
+  dplyr::filter(density < 1.0 & density > 0.2)%>%
+  ggplot(aes(x= diameter, y= dry_weight_wood/volume_phse))+
+  geom_point(aes(color = factor(branch)), size=3)+
+  ylim(0,0.6)
+# == density bark post hydratation
+df_mtg%>%
+  dplyr::filter(density < 1.0 & density > 0.2)%>%
+  ggplot(aes(x= diameter, y= dry_weight_bark/(volume_ph-volume_phse)))+
+  geom_point(aes(color = factor(branch)), size=3)+
+                   ylim(0,0.6)
+# rapport des densité écorce / bois
+df_mtg%>%
+  dplyr::filter(density < 1.0 & density > 0.2)%>%
+  ggplot(aes(x= diameter, y= (dry_weight_bark/(volume_ph-volume_phse)) / (dry_weight_wood/volume_phse)))+
+  geom_point(aes(color = factor(branch)), size=3)+
+  ylim(0,2)
+# rapport volumes massique
+df_mtg%>%
+  dplyr::filter(density < 1.0 & density > 0.2)%>%
+  ggplot(aes(x= diameter, y= ((volume_ph-volume_phse)/dry_weight_bark) / (volume_phse/dry_weight_wood)))+
+  geom_point(aes(color = factor(branch)), size=3)+
+  ylim(0,2)
+
+
+# == ratio poids vs ratio volume
+df_mtg%>%
+  dplyr::filter(density < 1.0 & density > 0.2)%>%
+  ggplot(aes(x= dry_weight_bark/dry_weight_wood, y= (volume_ph-volume_phse)/volume_phse))+
+  geom_abline(slope = 1,intercept = 0)+
+  geom_point(aes(color = factor(branch)), size=3) + ylim(0,2)
+
+
+df_mtg%>%
+  dplyr::filter(density < 1.0 & density > 0.2)%>%
+  ggplot(aes(x= dry_weight_bark/dry_weight_wood, y= (volume_ph-volume_phse)/volume_phse))+
+  geom_point(aes(color = diameter), size=3)+
+  ylim(0,2)
+  scale_color_viridis_c()
+
+
+
+
+# == test age (year)
+df_mtg%>%
+  dplyr::filter(year<2018)%>%
+  ggplot(aes(x= year, y= diameter))+
+  geom_point(aes(color = factor(branch)), size=3) + ylim(0,50)
+# == diameter ou cross section vs borne
+df_mtg%>%
+  dplyr::filter(diameter<100, branch!="tree2h")%>%
+  ggplot(aes(x= diameter, y= volume_subtree))+
+  geom_point(aes(color = factor(branch)), size=3)
+# == cross_section vs volume subtree
+df_mtg%>%
+  dplyr::filter(diameter<100, branch!="tree2h")%>%
+  ggplot(aes(y= cross_section, x= volume_subtree))+
+  geom_point(aes(color = factor(branch)), size=3) + ylim(0,30)
+# == cross_section vs total pathlength
+df_mtg%>%
+  dplyr::filter(diameter<100, branch!="tree2h")%>%
+  ggplot(aes(y= cross_section, x= pathlength_subtree))+
+  geom_point(aes(color = factor(branch)), size=3) + ylim(0,30)
+
+# ============== TEST section vs nbleaves
+df_mtg%>%
+  dplyr::filter(diameter<100, branch!="tree2h")%>%
+  ggplot(aes(y= cross_section, x= number_leaves))+
+  geom_point(aes(color = factor(branch)), size=3)
+
+
+df_mtg%>%
+  dplyr::filter(density < 1.0 & density > 0.2)%>%
+  ggplot(aes(x= dry_weight_bark, y= volume_ph-volume_phse))+
+  geom_point(aes(color = factor(branch)))
+df_mtg%>%
+  dplyr::filter(density < 1.0 & density > 0.2)%>%
+  ggplot(aes(x= dry_weight_wood, y= volume_phse))+
+  geom_point(aes(color = factor(branch)))
+
+df_mtg%>%
+  dplyr::filter(density < 1.0 & density > 0.2)%>%
+  ggplot(aes(x= density_ph_wood, y= density_ph_bark))+
+  geom_abline(slope = 1,intercept = 0)+
+  geom_point(aes(color = factor(branch)))
+
+
+# density_ph wood vs density_ph wood+bark
+# density_ph_wood
+# df_mtg%>%
+#   dplyr::filter(density < 1.0 & density > 0.2)%>%
+#   ggplot(aes(x= diameter, y= dry_weight_wood/volume_phse))+
+#   geom_point(aes(color = factor(branch)))
+# df_mtg%>%
+#   dplyr::filter(density < 1.0 & density > 0.2)%>%
+#   ggplot(aes(x= density_ph, y= dry_weight_wood/volume_phse))+
+#   geom_abline(slope = 1,intercept = 0)+
+#   geom_point(aes(color = factor(branch)))
+
+
 
 # df_mtg%>%
 #   dplyr::filter(density < 1.0 & branch != "tree1h")%>%
