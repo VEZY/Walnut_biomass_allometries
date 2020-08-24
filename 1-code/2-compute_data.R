@@ -52,4 +52,4 @@ df_mtg = dplyr::bind_rows(df_mtg, .id = "branch")
 
 # Write the results -------------------------------------------------------
 
-fwrite(df_mtg,"2-results/density/density_data.csv")
+fwrite(df_mtg,"2-results/data.csv")

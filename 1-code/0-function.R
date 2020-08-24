@@ -101,7 +101,7 @@ compute_data_mtg = function(mtg){
   
   # Cross section of the terminal nodes for each node
   mutate_mtg(mtg, cross_sec_leaves = sum(leaves(attribute = "cross_section", symbol = "S"),na.rm = TRUE), 
-             .symbol = "S")  
+             .symbol = "S")
   # TODO 
   # somme des sections des UC terminales; a plotter vs section du porteur
   # Puis tester avec une valeur unique pour toutes les UC
