@@ -131,5 +131,6 @@ compute_data_mtg = function(mtg){
   #                            "volume","volume_subtree")
   data.tree::ToDataFrameTree(mtg,"ID","density","density_ph","volume_ph","volume_phse","volume_delta","diameter","length","axis_length",
                              "topological_order","segment_index_on_axis","dry_weight","dry_weight_bark","ratio_bark_wood",
-                             "volume","volume_subtree","cross_section","cross_sec_children")
+                             "volume","volume_subtree","cross_section","cross_sec_children",
+                             "number_leaves","pathlength_subtree")
 }
