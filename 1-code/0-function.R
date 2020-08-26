@@ -134,3 +134,123 @@ compute_data_mtg = function(mtg){
                              "volume","volume_subtree","cross_section","cross_sec_children",
                              "number_leaves","pathlength_subtree")
 }
+
+
+
+
+#' Fit a model
+#' 
+#' Fit a model and return the predictions and observations 
+#'
+#' @param x A data.frame
+#' @param model The model
+#'
+#' @return
+#' @export
+#'
+#' @examples
+#' df_mtg = data.table::fread("2-results/data.csv", data.table = FALSE)
+#' model = ~ lm(cross_section ~ 0 + number_leaves + pathlength_subtree, data = .x)
+#' fit_model(data = df_mtg, model = model, min_diam = 20)
+fit_model = function(data,model,min_diam){
+  
+  vars_in_model = all.vars(model)
+  vars_in_model = vars_in_model[!grepl("cross_section|.x",vars_in_model)]
+  
+  df_mtg_no_na = 
+    data%>%
+    select(tidyselect::all_of(c("branch","cross_section","diameter",vars_in_model)))%>%
+    filter_all(all_vars(!is.na(.)))%>%
+    mutate(split = ifelse(.data$diameter > min_diam, "train","test"))
+    
+  model_fit = 
+    df_mtg_no_na %>%
+    nest(data = c(-branch)) %>% 
+    mutate(
+      train_data = map(data, function(x) x[x$split=="train",]),
+      test_data = map(data, function(x) x[x$split=="test",]),
+      fit = map(train_data, possibly(model, otherwise = NA)),
+      meas_cross_section_train = map(train_data, function(x) x$cross_section),
+      meas_cross_section_test = map(test_data, function(x) x$cross_section),
+      pred_cross_section_train = map(fit, possibly(~ predict(.x), otherwise = NA)),
+      pred_cross_section_test = map2(fit,test_data, possibly(~ predict.lm(object = .x, newdata = .y), otherwise = NA)),
+      tidied = map(fit, tidy)
+    ) %>% 
+    unnest(tidied)
+  
+  model_fit_training = 
+    model_fit%>%
+    select(branch, meas_cross_section_train, pred_cross_section_train)%>%
+    unnest(c(meas_cross_section_train,pred_cross_section_train))%>%
+    rename(meas_cross_section = meas_cross_section_train,
+           pred_cross_section = pred_cross_section_train)%>%
+    mutate(type = "training")
+  
+  model_fit_testing = 
+    model_fit%>%
+    select(branch, meas_cross_section_test, pred_cross_section_test)%>%
+    unnest(c(meas_cross_section_test,pred_cross_section_test))%>%
+    rename(meas_cross_section = meas_cross_section_test,
+           pred_cross_section = pred_cross_section_test)%>%
+    mutate(type = "testing")
+  
+  nrmse = CroPlotR::nRMSE(sim = model_fit_all$pred_cross_section, obs = model_fit_all$meas_cross_section)
+  EF = CroPlotR::EF(sim = model_fit_all$pred_cross_section, obs = model_fit_all$meas_cross_section)
+  Bias = CroPlotR::Bias(sim = model_fit_all$pred_cross_section, obs = model_fit_all$meas_cross_section)
+  
+  cat(paste("nrmse=",round(nrmse,3),", EF=",round(EF,3),
+              ", Bias=",round(Bias,3)))
+  bind_rows(model_fit_training,model_fit_testing)
+}
+
+
+fit_model2 = function(data,model,min_diam){
+  
+  vars_in_model = all.vars(model)
+  vars_in_model = vars_in_model[!grepl("cross_section|.x",vars_in_model)]
+  
+  df_mtg_no_na = 
+    data%>%
+    select(tidyselect::all_of(c("branch","cross_section","diameter",vars_in_model)))%>%
+    filter_all(all_vars(!is.na(.)))%>%
+    mutate(split = ifelse(.data$diameter > min_diam, "train","test"))
+  
+  model_fit = 
+    df_mtg_no_na %>%
+    nest(data = c(-branch)) %>% 
+    mutate(
+      train_data = map(data, function(x) x[x$split=="train",]),
+      test_data = map(data, function(x) x[x$split=="test",]),
+      fit = map(train_data, possibly(model, otherwise = NA)),
+      meas_cross_section_train = map(train_data, function(x) x$cross_section),
+      meas_cross_section_test = map(test_data, function(x) x$cross_section),
+      pred_cross_section_train = map(fit, possibly(~ predict(.x), otherwise = NA)),
+      pred_cross_section_test = map2(fit,test_data, possibly(~ predict.lm(object = .x, newdata = .y), otherwise = NA)),
+      tidied = map(fit, tidy)
+    ) %>% 
+    unnest(tidied)
+  
+  model_fit_training = 
+    model_fit%>%
+    select(branch, meas_cross_section_train, pred_cross_section_train)%>%
+    unnest(c(meas_cross_section_train,pred_cross_section_train))%>%
+    rename(meas_cross_section = meas_cross_section_train,
+           pred_cross_section = pred_cross_section_train)%>%
+    mutate(type = "training")
+  
+  model_fit_testing = 
+    model_fit%>%
+    select(branch, meas_cross_section_test, pred_cross_section_test)%>%
+    unnest(c(meas_cross_section_test,pred_cross_section_test))%>%
+    rename(meas_cross_section = meas_cross_section_test,
+           pred_cross_section = pred_cross_section_test)%>%
+    mutate(type = "testing")
+  
+  nrmse = CroPlotR::nRMSE(sim = model_fit_all$pred_cross_section, obs = model_fit_all$meas_cross_section)
+  EF = CroPlotR::EF(sim = model_fit_all$pred_cross_section, obs = model_fit_all$meas_cross_section)
+  Bias = CroPlotR::Bias(sim = model_fit_all$pred_cross_section, obs = model_fit_all$meas_cross_section)
+  
+  cat(paste("nrmse=",round(nrmse,3),", EF=",round(EF,3),
+            ", Bias=",round(Bias,3)))
+  bind_rows(model_fit_training,model_fit_testing)
+}
