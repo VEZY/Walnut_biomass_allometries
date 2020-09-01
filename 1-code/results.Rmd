@@ -1,0 +1,146 @@
+---
+title: "Results"
+author: "R. Vezy"
+date: "01/09/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Project set up
+
+Set up libraries:
+
+```{r}
+library(ggplot2)
+library(magrittr)
+library(data.table)
+library(tidyverse)
+library(ggpubr)
+```
+
+Load data:
+
+```{r}
+df_mtg = fread("../2-results/data.csv", data.table = FALSE)
+# See 2-compute-data.R for details
+df_mtg$tree = stringr::str_sub(gsub("tree","",df_mtg$branch), start = 1, end = 1)
+df_mtg$branch = stringr::str_sub(gsub("tree","",df_mtg$branch), start = 2)
+```
+
+## Data analysis
+
+### Density
+
+We used three different methodologies for measuring the sample volume:
+
+- measuring the fresh sample as it is;
+
+- put the sample into water for hydration for ~2 days with bark;
+
+- put the sample into water for hydration for ~2 days and removing the bark
+
+Comparing the resulting volumes tells us that measuring the volume on the fresh sample gives values close to hydrated samples with bark (see fig. below)
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+df_mtg%>%
+  ggplot(aes(x = volume_ph, y = volume_bh))+
+  geom_point(aes(color = paste0(tree,", ",branch)))+
+  geom_abline(slope = 1, intercept = 0, lty = 2, color = "grey60")+
+  geom_smooth(method='lm', formula= y~x)+
+  stat_cor(label.y = 25, digits = 3) +
+  stat_regline_equation(label.y = 23) +
+  labs(colour = "Tree, branch", y = "Sample volume (fresh)",
+       x = "Sample volume (hydrated)")
+```
+
+```{r include=FALSE}
+Bias = CroPlotR::Bias(sim = df_mtg$volume_bh, obs = df_mtg$volume_ph)
+```
+
+This method allows for a faster estimation of the sample volume, with a low bias (`r Bias`).
+
+Our approach includes the bark because our objective is to evaluate the total biomass that can be exploited by pruning of branches, then including bark (it can be of interest for e.g. chemistry). 
+Removing the bark from the sample gives different estimations of the volume though, especially for bigger samples: 
+
+```{r}
+df_mtg%>%
+  ggplot(aes(x = volume_ph, y = volume_phse))+
+  geom_point(aes(color = paste0(tree,", ",branch)))+
+  geom_abline(slope = 1, intercept = 0)+
+  geom_abline(slope = 1, intercept = 0, lty = 2, color = "grey60")+
+  geom_smooth(method='lm', formula= y~x)+
+  stat_cor(label.y = 17, digits = 3) +
+  stat_regline_equation(label.y = 16) +
+  labs(colour = "Tree, branch", y = "Sample volume (hydrated, without bark, cm3)",
+       x = "Sample volume (hydrated, with bark, cm3)")
+```
+
+But the difference stabilizes when we look at relative values:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+df_mtg%>%
+  ggplot(aes(x = volume_ph, y = volume_phse/volume_ph))+
+  geom_point(aes(color = paste0(tree,", ",branch)))+
+  geom_abline(slope = 0, intercept = 0)+
+  labs(colour = "Tree, branch", y = "Volume hydrated without bark relative to volume with bark",
+       x = "Sample volume (hydrated, with bark, cm3)")
+```
+
+
+The wood density is highly variable between trees, branches and also segments. No clear trend was found with any of the available variables: 
+
+```{r}
+df_mtg%>%
+  select(branch,tree,density,segment_index_on_axis,
+         axis_length,diameter,
+         volume_subtree)%>%
+  rename("Density (g cm-3)" = density,
+         "Volume subtree (cm-3)" = volume_subtree,
+         "Axis length (cm)" = axis_length,
+         "Index (-)" = segment_index_on_axis,
+         "Diameter (mm)" = diameter)%>%
+  # select(branch,tree,density_ph_wood,diameter)%>%
+  reshape2::melt(id.vars = c("tree","branch","Density (g cm-3)"))%>%
+  ggplot(aes(x = `Density (g cm-3)`, y = value, color = paste0(tree,", ",branch)))+
+  facet_wrap(variable~ ., scales = "free")+
+  # facet_grid(rows = vars(variable), scales = "free")+
+  geom_point()+
+  labs(colour = "Tree, branch", y = "Variable value")
+```
+
+The variability in the density appears to be linked to other variables that were not measured in this study (e.g. biomecanics, age...).
+
+### Dimensions
+
+```{r}
+df_mtg%>%
+  ggplot(aes(x = cross_section, y = cross_sec_children))+
+  geom_point(aes(color = paste0(tree,", ",branch)))+
+  geom_abline(slope = 1, intercept = 0, lty = 2, color = "grey60")+
+  geom_smooth(method='lm', formula= y~x)+
+  stat_cor(label.y = 80, digits = 3) +
+  stat_regline_equation(label.y = 75) +
+  labs(colour = "Tree, branch", y = "Cross section children (cm2)",
+       x = "Cross section segment (cm2)")
+```
+
+
+```{r}
+# TODO: Add treatment info
+df_mtg%>%
+  ggplot(aes(x = cross_section, y = cross_sec_leaves))+
+  geom_point(aes(color = paste0(tree,", ",branch)))+
+  geom_abline(slope = 1, intercept = 0, lty = 2, color = "grey60")+
+  geom_smooth(method='lm', formula= y~x, aes(color = paste0(tree,", ",branch)))+
+  facet_wrap(tree ~ ., scales = "free")+
+  labs(colour = "Tree, branch", y = "Cross section leaves (cm2)",
+       x = "Cross section segment (cm2)")
+```
+
+
+## Modelling
+
+

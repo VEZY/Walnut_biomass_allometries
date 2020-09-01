@@ -9,14 +9,18 @@ library(tidyverse)
 
 df_mtg = fread("2-results/data.csv", data.table = FALSE)
 
-# df_mtg$cross_section[df_mtg$cross_section > 200 & !is.na(df_mtg$cross_section)] = 
-#   df_mtg$cross_section[df_mtg$cross_section > 200 & !is.na(df_mtg$cross_section)] / 100
+df_mtg$tree = stringr::str_sub(gsub("tree","",df_mtg$branch), start = 1, end = 1)
+df_mtg$branch = stringr::str_sub(gsub("tree","",df_mtg$branch), start = 2)
+# df_mtg$cross_section[df_mtg$cross_section > 80 & !is.na(df_mtg$cross_section)] = NA
+# df_mtg$diameter[df_mtg$diameter > 80 & !is.na(df_mtg$diameter)] = NA
+
 
 # Adding one to the number of leaves for the terminal leaves (they bear themselves)
 df_mtg$number_leaves[df_mtg$number_leaves==0] = 1
 
 # Complete model (use all possible variables available from LiDAR):
-complete_model = lm(cross_section ~ number_leaves + pathlength_subtree + segment_index_on_axis + axis_length + length, data = df_mtg)
+complete_model = lm(cross_section ~ number_leaves + pathlength_subtree + segment_index_on_axis 
+                    + axis_length + length, data = df_mtg)
 caret::varImp(complete_model)
 # Only pathlength_subtree and segment_index_on_axis seems to have a high weight
 
@@ -29,16 +33,23 @@ min_diam = 20 # Minimal diameter where the LiDAR can measure the diameters right
 vars_in_model = names(model$coefficients)
 vars_in_model = vars_in_model[!grepl("(Intercept)",vars_in_model)]
 
-reshape2::melt(df_mtg%>%select(branch,cross_section,tidyselect::all_of(vars_in_model)), 
-               id.vars = c("branch","cross_section"))
+reshape2::melt(df_mtg%>%select(branch,tree,diameter,tidyselect::all_of(vars_in_model)), 
+               id.vars = c("tree","branch","diameter"))%>%
+  ggplot(aes(x = diameter, y = value, color = paste(tree,branch)))+
+  # facet_wrap(variable + branch ~ ., scales = "free_y")+
+  facet_grid(rows = vars(variable), cols = vars(tree,branch), scales = "free_y")+
+  geom_point()
 
-ggplot(df_mtg, aes)
-
-
+reshape2::melt(df_mtg%>%select(branch,tree,diameter,tidyselect::all_of(vars_in_model)), 
+               id.vars = c("tree","branch","diameter"))%>%
+  ggplot(aes(x = diameter, y = value, color = paste(tree,branch), shape = tree))+
+  # facet_wrap(variable + branch ~ ., scales = "free_y")+
+  facet_grid(rows = vars(variable), scales = "free_y")+
+  geom_point()
 
 df_mtg_no_na = 
   df_mtg%>%
-  select(tidyselect::all_of(c("branch","cross_section","diameter",vars_in_model)))%>%
+  select(tidyselect::all_of(c("branch","tree","cross_section","diameter",vars_in_model)))%>%
   filter_all(all_vars(!is.na(.)))%>%
   mutate(pred_cross_section = predict(model, newdata = .))
 
@@ -48,7 +59,7 @@ simple_model_p =
   # filter(diameter < min_diam)%>%
   # filter(diameter >= min_diam)%>%
   # filter(branch == "tree2h")%>%
-  ggplot(aes(x= cross_section, y = pred_cross_section, color = branch))+
+  ggplot(aes(x= cross_section, y = pred_cross_section, color = paste(branch,tree)))+
   geom_point()+
   geom_abline(slope = 1, intercept = 0)
 
@@ -63,7 +74,7 @@ df_mtg_no_na_cor =
   df_mtg_no_na%>%
   mutate(split = ifelse(.data$diameter >= min_diam, "train","test"))%>%
   # filter(diameter >= min_diam)%>%
-  nest(data = c(-branch))%>%
+  nest(data = c(-branch,-tree))%>%
   mutate(
     train_data = map(data, function(x) x[x$split=="train",]),
     # test_data = map(data, function(x) x[x$split=="test",]),
@@ -82,9 +93,11 @@ df_mtg_no_na_cor =
     # tidied = map(fit, tidy)
   )%>% 
   unnest(c(intercept,slope,diameter,cross_section,pred_cross_section,pred_cross_section_cor))%>% 
-  select(-data,-fit)
+  select(-data,-fit)%>%
+  mutate(diameter_pred = sqrt(pred_cross_section_cor/pi)*10*2,
+         volume = cross_section * .data$length)
 
-# df_mtg_no_na= 
+ # df_mtg_no_na= 
 #   df_mtg_no_na%>%
 #   dplyr::full_join(cor_factors, by = "branch")%>%
 #   mutate(pred_cross_section_cor = intercept + slope * pred_cross_section)%>%
@@ -138,7 +151,5 @@ df_mtg_no_na_cor%>%
   geom_abline(slope = 1, intercept = 0)
 
 
-# 0/ Nettoyer les donnees (certains points sont tres bizarre et faussent les calculs)
-# 1/ Ajouter des variables (pathlength_subtree)
-# 2/ Calculer les volumes predis, et comparer aux volumes issus de mesures 
+# TODO: Calculer les volumes predis, et comparer aux volumes issus de mesures 
 

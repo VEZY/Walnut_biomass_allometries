@@ -5,10 +5,102 @@ library(ggplot2)
 library(magrittr)
 library(data.table)
 library(tidyverse)
+library(patchwork)
+library(ggpubr)
 
 # Read the data.frame -----------------------------------------------------
 
 df_mtg = fread("2-results/data.csv", data.table = FALSE)
+
+df_mtg$tree = stringr::str_sub(gsub("tree","",df_mtg$branch), start = 1, end = 1)
+df_mtg$branch = stringr::str_sub(gsub("tree","",df_mtg$branch), start = 2)
+
+# Comparing volume measurement methods:
+
+df_mtg%>%
+  ggplot(aes(x = volume_ph, y = volume_bh))+
+  geom_point(aes(color = paste0(tree,", ",branch)))+
+  geom_abline(slope = 1, intercept = 0, lty = 2, color = "grey60")+
+  geom_smooth(method='lm', formula= y~x)+
+  stat_cor(label.y = 25, digits = 3) +
+  stat_regline_equation(label.y = 23) +
+  labs(colour = "Tree, branch", y = "Sample volume (fresh)",
+       x = "Sample volume (hydrated)")
+CroPlotR::Bias(sim = df_mtg$volume_bh, obs = df_mtg$volume_ph)
+
+df_mtg%>%
+  ggplot(aes(x = volume_ph, y = volume_phse))+
+  geom_point(aes(color = paste(tree,branch)))+
+  geom_abline(slope = 1, intercept = 0)+
+  geom_abline(slope = 1, intercept = 0, lty = 2, color = "grey60")+
+  geom_smooth(method='lm', formula= y~x)+
+  stat_cor(label.y = 17, digits = 3) +
+  stat_regline_equation(label.y = 16) +
+  labs(colour = "Tree, branch", y = "Sample volume (hydrated, without bark)",
+       x = "Sample volume (hydrated, with bark)")
+
+df_mtg%>%
+  ggplot(aes(x = volume_ph, y = volume_phse/volume_ph))+
+  geom_point(aes(color = paste(tree,branch)))
+
+p =
+  df_mtg%>%
+  ggplot(aes(x = volume_ph, y = volume_bh, color = paste(tree,branch)))+
+  geom_point()+
+  geom_abline(slope = 1, intercept = 0)
+
+lm(formula = volume_bh ~ 0 + volume_ph, data = df_mtg)
+CroPlotR::Bias(sim = df_mtg$volume_bh, obs = df_mtg$volume_ph)
+
+plotly::ggplotly(p)
+
+df_mtg%>%
+  ggplot(aes(x = , y = volume_bh, color = paste(tree,branch)))+
+  geom_point()+
+  geom_abline(slope = 1, intercept = 0)
+
+
+# Comparing density measurement method:
+
+df_mtg%>%
+  ggplot(aes(x = volume_phse, y = volume_ph, color = paste(tree,branch)))+
+  geom_point()+
+  geom_abline(slope = 1, intercept = 0)
+
+
+df_mtg%>%
+  ggplot(aes(x = density_ph_wood, y = density_ph, color = paste(tree,branch)))+
+  geom_point()+
+  geom_abline(slope = 1, intercept = 0)
+
+df_mtg%>%
+  ggplot(aes(x = density_ph_wood, y = density, color = paste(tree,branch)))+
+  geom_point()+
+  geom_abline(slope = 1, intercept = 0)
+
+
+
+df_mtg%>%
+  select(branch,tree,density,segment_index_on_axis,
+         axis_length,diameter,
+         volume_subtree)%>%
+  rename("Density (g cm-3)" = density,
+         "Volume subtree (cm-3)" = volume_subtree,
+         "Axis length (cm)" = axis_length,
+         "Index (-)" = segment_index_on_axis,
+         "Diameter (mm)" = diameter)%>%
+  # select(branch,tree,density_ph_wood,diameter)%>%
+  reshape2::melt(id.vars = c("tree","branch","Density (g cm-3)"))%>%
+  ggplot(aes(x = `Density (g cm-3)`, y = value, color = paste0(tree,", ",branch)))+
+  facet_wrap(variable~ ., scales = "free")+
+  # facet_grid(rows = vars(variable), scales = "free")+
+  geom_point()+
+  labs(colour = "Tree, branch", y = "Variable value")
+
+df_mtg%>%
+  ggplot(aes(x= as.integer(year), y = density, color = paste0(tree,", ",branch)))+
+  facet_wrap(paste0(tree,", ",branch)~ ., scales = "free")+
+  geom_point()
 
 
 
@@ -17,6 +109,12 @@ df_mtg%>%
   dplyr::filter(ID != 1500 & ID != 1515 & ID != 4296)%>%
   ggplot(aes(x= topological_order, y= density))+
   geom_boxplot(aes(group = topological_order))
+
+df_mtg%>%
+  dplyr::filter(ID != 1500 & ID != 1515 & ID != 4296)%>%
+  ggplot(aes(x= topological_order, y= density))+
+  geom_boxplot(aes(group = topological_order))
+
 
 df_mtg%>%
   dplyr::filter(ID != 1500 & ID != 1515 & ID != 4296)%>%
@@ -313,7 +411,7 @@ df_mtg%>%
   geom_point(aes(color = factor(topological_order)))
 
 
-
+# TODO : Add plot density ~ year
 
 # faire diametre fct du nombre de "leaf"
 

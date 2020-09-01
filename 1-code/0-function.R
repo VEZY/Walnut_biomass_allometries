@@ -53,7 +53,12 @@ compute_data_mtg = function(mtg){
     mutate_mtg(mtg, dry_weight = node$dry_weight_p2,.symbol = "S")
   }
   
-  mutate_mtg(mtg, density = node$dry_weight/node$volume_bh,
+  if("fresh_density" %in% attr(mtg,"features")$NAME){
+    mutate_mtg(mtg, density = node$fresh_density, .symbol = "S")
+  }
+  
+  mutate_mtg(mtg, 
+             density = node$dry_weight/node$volume_bh,
              density_ph = node$dry_weight/node$volume_ph,
              density_ph_wood = node$dry_weight_wood/node$volume_phse,
              density_ph_bark = node$dry_weight_bark/(node$volume_ph-node$volume_phse),
@@ -62,11 +67,11 @@ compute_data_mtg = function(mtg){
   # ======== total pathlength of sub-tree):
   mutate_mtg(mtg, pathlength_subtree = sum(descendants(attribute = "length", symbol = "S",
                                                                   self = TRUE)), .symbol = "S")
-  # xxxxxxxxxxxxxxxxxxxxxxx
+  # Number of leaves (terminal nodes) a node bear (i.e. all for the first, 0 for a terminal node)
   mutate_mtg(mtg, number_leaves = length(leaves(attribute = "topological_order", symbol = "S")), .symbol = "S")
   
   # density of wood without bark taking account for wood dry weight without bark
-  # (Note: without considering the vume of bark)
+  # (Note: without considering the volume of bark)
   # mutate_mtg(mtg, density_wood_only = node$dry_weight_wood/node$volume_bh,
   #            .symbol = "S")
   # 
@@ -107,7 +112,7 @@ compute_data_mtg = function(mtg){
   mutate_mtg(mtg, cross_sec_children = sum(children(attribute = "cross_section", symbol = "S")), .symbol = "S")
   
   # Cross section of the terminal nodes for each node
-  mutate_mtg(mtg, cross_sec_leaves = sum(leaves(attribute = "cross_section", symbol = "S"),na.rm = TRUE), 
+  mutate_mtg(mtg, cross_sec_leaves = sum(leaves(attribute = "cross_section", symbol = "S"),na.rm = TRUE),
              .symbol = "S")
   # TODO 
   # somme des sections des UC terminales; a plotter vs section du porteur
@@ -129,10 +134,12 @@ compute_data_mtg = function(mtg){
   # data.tree::ToDataFrameTree(mtg$MTG,"ID","density","density_ph","diameter","length","axis_length",
   #                            "topological_order","segment_index_on_axis","dry_weight",
   #                            "volume","volume_subtree")
-  data.tree::ToDataFrameTree(mtg,"ID","density","density_ph","volume_ph","volume_phse","volume_delta","diameter","length","axis_length",
-                             "topological_order","segment_index_on_axis","dry_weight","dry_weight_bark","ratio_bark_wood",
-                             "volume","volume_subtree","cross_section","cross_sec_children",
-                             "number_leaves","pathlength_subtree")
+  data.tree::ToDataFrameTree(mtg,"ID","year","density","density_ph","volume_ph","volume_phse","volume_delta",
+                             "volume_bh","diameter","length","axis_length","topological_order",
+                             "segment_index_on_axis","fresh_weight","dry_weight","dry_weight_bark",
+                             "dry_weight_wood","ratio_bark_wood", "volume","volume_subtree",
+                             "cross_section","cross_sec_children","cross_sec_leaves","number_leaves",
+                             "pathlength_subtree","density_ph_wood")
 }
 
 
