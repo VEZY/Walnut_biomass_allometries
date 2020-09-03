@@ -16,20 +16,20 @@ df_mtg$branch = stringr::str_sub(gsub("tree","",df_mtg$branch), start = 2)
 # Adding one to the number of leaves for the terminal leaves (they bear themselves)
 df_mtg$number_leaves[df_mtg$number_leaves==0] = 1
 
-
+# The formula used for the general model:
 formula = cross_section ~ number_leaves + pathlength_subtree + 
   segment_index_on_axis + axis_length + segment_subtree
 
-
-vars_in_model = all.vars(formula)[-1]
-
-reshape2::melt(df_mtg%>%select(branch,tree,diameter,tidyselect::all_of(vars_in_model)), 
+# Plotting the relationship between the variables used and the cross_section:
+reshape2::melt(df_mtg%>%select(branch,tree,diameter,tidyselect::all_of(all.vars(formula)[-1])), 
                id.vars = c("tree","branch","diameter"))%>%
   ggplot(aes(x = diameter, y = value, color = paste(tree,branch)))+
   # facet_wrap(variable + branch ~ ., scales = "free_y")+
   facet_grid(rows = vars(variable), cols = vars(tree,branch), scales = "free_y")+
   geom_point()
 
+
+# Fitting the general model, and applying a correction factor based on each branch to it: 
 model = fit_model(data = df_mtg, formula = formula, min_diam = 20)
 
 # TODO: Calculer les volumes predis, et comparer aux volumes issus de mesures 
