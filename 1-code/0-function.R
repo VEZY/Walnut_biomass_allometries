@@ -64,9 +64,14 @@ compute_data_mtg = function(mtg){
              density_ph_bark = node$dry_weight_bark/(node$volume_ph-node$volume_phse),
              .symbol = "S")
   
-  # ======== total pathlength of sub-tree):
+  # Total pathlength of sub-tree):
   mutate_mtg(mtg, pathlength_subtree = sum(descendants(attribute = "length", symbol = "S",
                                                                   self = TRUE)), .symbol = "S")
+  
+  # Number of segments each segment bears:
+  mutate_mtg(mtg, segment_subtree = length(descendants(attribute = "length", symbol = "S",
+                                                          self = TRUE)), .symbol = "S")
+  
   # Number of leaves (terminal nodes) a node bear (i.e. all for the first, 0 for a terminal node)
   mutate_mtg(mtg, number_leaves = length(leaves(attribute = "topological_order", symbol = "S")), .symbol = "S")
   
@@ -139,7 +144,7 @@ compute_data_mtg = function(mtg){
                              "segment_index_on_axis","fresh_weight","dry_weight","dry_weight_bark",
                              "dry_weight_wood","ratio_bark_wood", "volume","volume_subtree",
                              "cross_section","cross_sec_children","cross_sec_leaves","number_leaves",
-                             "pathlength_subtree","density_ph_wood")
+                             "pathlength_subtree","density_ph_wood","segment_subtree")
 }
 
 
@@ -147,117 +152,146 @@ compute_data_mtg = function(mtg){
 
 #' Fit a model
 #' 
-#' Fit a model and return the predictions and observations 
+#' Fit a model and return the plots, stats and data (predictions, observations) 
 #'
-#' @param x A data.frame
-#' @param model The model
-#'
-#' @return
+#' @param data A data.frame
+#' @param formula The model
+#' @param min_diam Minimal diameter at which the LiDAR can measure the diameters right 
+#' @return A list with the plots, stats and data.
 #' @export
 #'
 #' @examples
 #' df_mtg = data.table::fread("2-results/data.csv", data.table = FALSE)
-#' model = ~ lm(cross_section ~ 0 + number_leaves + pathlength_subtree, data = .x)
-#' fit_model(data = df_mtg, model = model, min_diam = 20)
-fit_model = function(data,model,min_diam){
+#' formula = cross_section ~ number_leaves + pathlength_subtree + segment_index_on_axis + axis_length
+#' fit_model(data = df_mtg, formula = formula, min_diam = 20)
+fit_model = function(data,formula,min_diam = 20){
+
+  # Complete model (use all possible variables available from LiDAR):
+  model = lm(formula, data = data)
   
-  vars_in_model = all.vars(model)
-  vars_in_model = vars_in_model[!grepl("cross_section|.x",vars_in_model)]
+  caret::varImp(model)
   
-  df_mtg_no_na = 
+  vars_in_model = names(model$coefficients)
+  vars_in_model = vars_in_model[!grepl("(Intercept)",vars_in_model)]
+  
+  data_no_na = 
     data%>%
-    select(tidyselect::all_of(c("branch","cross_section","diameter",vars_in_model)))%>%
+    select(tidyselect::all_of(c("branch","tree","cross_section","diameter",vars_in_model)))%>%
     filter_all(all_vars(!is.na(.)))%>%
-    mutate(split = ifelse(.data$diameter > min_diam, "train","test"))
-    
-  model_fit = 
-    df_mtg_no_na %>%
-    nest(data = c(-branch)) %>% 
+    mutate(pred_cross_section = predict(model, newdata = .))
+  
+  # Our simple model, without any correction:
+  simple_model_p = 
+    data_no_na%>%
+    # filter(diameter < min_diam)%>%
+    # filter(diameter >= min_diam)%>%
+    # filter(branch == "tree2h")%>%
+    ggplot(aes(x= cross_section, y = pred_cross_section, color = paste0(tree,", ",branch)))+
+    geom_point()+
+    geom_abline(slope = 1, intercept = 0)
+  
+  
+  # Fitting a correction factor (alpha) for each branch on "measured" points
+  # i.e. the ones that have a diameter above min_diam:
+  cor_model = ~lm(cross_section ~ 0 + pred_cross_section, data = .x)
+  
+  data_no_na_cor = 
+    data_no_na%>%
+    mutate(split = ifelse(.data$diameter >= min_diam, "train","test"))%>%
+    nest(data = c(-branch,-tree))%>%
     mutate(
       train_data = map(data, function(x) x[x$split=="train",]),
-      test_data = map(data, function(x) x[x$split=="test",]),
-      fit = map(train_data, possibly(model, otherwise = NA)),
-      meas_cross_section_train = map(train_data, function(x) x$cross_section),
-      meas_cross_section_test = map(test_data, function(x) x$cross_section),
-      pred_cross_section_train = map(fit, possibly(~ predict(.x), otherwise = NA)),
-      pred_cross_section_test = map2(fit,test_data, possibly(~ predict.lm(object = .x, newdata = .y), otherwise = NA)),
-      tidied = map(fit, tidy)
-    ) %>% 
-    unnest(tidied)
+      # test_data = map(data, function(x) x[x$split=="test",]),
+      fit = map(train_data, possibly(cor_model,otherwise = NA)),
+      # cross_section_train = map(train_data, function(x) x$cross_section),
+      # cross_section_test = map(test_data, function(x) x$cross_section),
+      # pred_cross_section_train = map(fit, possibly(~ predict(.x), otherwise = NA)),
+      # pred_cross_section_test = map2(fit,test_data, possibly(~ predict.lm(object = .x, newdata = .y), otherwise = NA)),
+      diameter = map(data, function(x) x$diameter),
+      cross_section = map(data, function(x) x$cross_section),
+      pred_cross_section = map(data, function(x) x$pred_cross_section),
+      # pred_cross_section_cor = map(fit, possibly(~ predict(.x), otherwise = NA)),
+      pred_cross_section_cor = map2(fit,data, possibly(~ predict.lm(object = .x, newdata = .y), otherwise = NA)),
+      intercept = map(fit, possibly(~coef(.x)[1],otherwise = NA)),
+      slope = map(fit, possibly(~coef(.x)[2],otherwise = NA)),
+      # tidied = map(fit, tidy)
+    )%>% 
+    unnest(c(intercept,slope,diameter,cross_section,pred_cross_section,pred_cross_section_cor))%>% 
+    select(-data,-fit)%>%
+    mutate(diameter_pred = sqrt(pred_cross_section_cor/pi)*10*2)
   
-  model_fit_training = 
-    model_fit%>%
-    select(branch, meas_cross_section_train, pred_cross_section_train)%>%
-    unnest(c(meas_cross_section_train,pred_cross_section_train))%>%
-    rename(meas_cross_section = meas_cross_section_train,
-           pred_cross_section = pred_cross_section_train)%>%
-    mutate(type = "training")
   
-  model_fit_testing = 
-    model_fit%>%
-    select(branch, meas_cross_section_test, pred_cross_section_test)%>%
-    unnest(c(meas_cross_section_test,pred_cross_section_test))%>%
-    rename(meas_cross_section = meas_cross_section_test,
-           pred_cross_section = pred_cross_section_test)%>%
-    mutate(type = "testing")
+  # Statistics:
+  stats_simple_model = 
+    data_no_na_cor%>%
+    group_by(tree,branch)%>%
+    summarise(nrmse = CroPlotR::nRMSE(sim = pred_cross_section, obs = cross_section),
+              EF = CroPlotR::EF(sim = pred_cross_section, obs = cross_section),
+              Bias = CroPlotR::Bias(sim = pred_cross_section, obs = cross_section)
+    )
   
-  nrmse = CroPlotR::nRMSE(sim = model_fit_all$pred_cross_section, obs = model_fit_all$meas_cross_section)
-  EF = CroPlotR::EF(sim = model_fit_all$pred_cross_section, obs = model_fit_all$meas_cross_section)
-  Bias = CroPlotR::Bias(sim = model_fit_all$pred_cross_section, obs = model_fit_all$meas_cross_section)
+  stats_simple_model_min_diam = 
+    data_no_na_cor%>%
+    filter(diameter < min_diam)%>%
+    group_by(tree,branch)%>%
+    summarise(nrmse = CroPlotR::nRMSE(sim = pred_cross_section, obs = cross_section),
+              EF = CroPlotR::EF(sim = pred_cross_section, obs = cross_section),
+              Bias = CroPlotR::Bias(sim = pred_cross_section, obs = cross_section)
+    )
   
-  cat(paste("nrmse=",round(nrmse,3),", EF=",round(EF,3),
-              ", Bias=",round(Bias,3)))
-  bind_rows(model_fit_training,model_fit_testing)
-}
-
-
-fit_model2 = function(data,model,min_diam){
+  stats_corrected = 
+    data_no_na_cor%>%
+    group_by(tree,branch)%>%
+    summarise(nrmse = CroPlotR::nRMSE(sim = pred_cross_section_cor, obs = cross_section),
+              EF = CroPlotR::EF(sim = pred_cross_section_cor, obs = cross_section),
+              Bias = CroPlotR::Bias(sim = pred_cross_section_cor, obs = cross_section)
+    )
   
-  vars_in_model = all.vars(model)
-  vars_in_model = vars_in_model[!grepl("cross_section|.x",vars_in_model)]
+  stats_corrected_min_diam = 
+    data_no_na_cor%>%
+    filter(diameter < min_diam)%>%
+    group_by(tree,branch)%>%
+    summarise(nrmse = CroPlotR::nRMSE(sim = pred_cross_section_cor, obs = cross_section),
+              EF = CroPlotR::EF(sim = pred_cross_section_cor, obs = cross_section),
+              Bias = CroPlotR::Bias(sim = pred_cross_section_cor, obs = cross_section)
+    )
   
-  df_mtg_no_na = 
-    data%>%
-    select(tidyselect::all_of(c("branch","cross_section","diameter",vars_in_model)))%>%
-    filter_all(all_vars(!is.na(.)))%>%
-    mutate(split = ifelse(.data$diameter > min_diam, "train","test"))
   
-  model_fit = 
-    df_mtg_no_na %>%
-    nest(data = c(-branch)) %>% 
-    mutate(
-      train_data = map(data, function(x) x[x$split=="train",]),
-      test_data = map(data, function(x) x[x$split=="test",]),
-      fit = map(train_data, possibly(model, otherwise = NA)),
-      meas_cross_section_train = map(train_data, function(x) x$cross_section),
-      meas_cross_section_test = map(test_data, function(x) x$cross_section),
-      pred_cross_section_train = map(fit, possibly(~ predict(.x), otherwise = NA)),
-      pred_cross_section_test = map2(fit,test_data, possibly(~ predict.lm(object = .x, newdata = .y), otherwise = NA)),
-      tidied = map(fit, tidy)
-    ) %>% 
-    unnest(tidied)
+  # Plot to see what is the effect of the correction on each branch,
+  # and what are the points used to train the correction:
   
-  model_fit_training = 
-    model_fit%>%
-    select(branch, meas_cross_section_train, pred_cross_section_train)%>%
-    unnest(c(meas_cross_section_train,pred_cross_section_train))%>%
-    rename(meas_cross_section = meas_cross_section_train,
-           pred_cross_section = pred_cross_section_train)%>%
-    mutate(type = "training")
+  correction_comparison = 
+    data_no_na_cor%>%
+    mutate(Point = ifelse(diameter >= min_diam, "Cor training", "Cor left out"))%>%
+    # filter(branch == "tree2h")%>%
+    ggplot(aes(x= cross_section, color = Point))+
+    facet_wrap(tree + branch ~ ., scales = "free")+
+    geom_point(aes(y = pred_cross_section))+
+    geom_point(aes(y = pred_cross_section_cor, color = "corrected"))+
+    geom_abline(slope = 1, intercept = 0)
   
-  model_fit_testing = 
-    model_fit%>%
-    select(branch, meas_cross_section_test, pred_cross_section_test)%>%
-    unnest(c(meas_cross_section_test,pred_cross_section_test))%>%
-    rename(meas_cross_section = meas_cross_section_test,
-           pred_cross_section = pred_cross_section_test)%>%
-    mutate(type = "testing")
+  corrected = 
+    data_no_na_cor%>%
+    # mutate(Point = ifelse(diameter >= min_diam, "Cor training", "Cor left out"))%>%
+    # filter(branch == "tree2h")%>%
+    ggplot(aes(x= cross_section))+
+    geom_point(aes(y = pred_cross_section_cor, color = "corrected"))+
+    geom_abline(slope = 1, intercept = 0)
   
-  nrmse = CroPlotR::nRMSE(sim = model_fit_all$pred_cross_section, obs = model_fit_all$meas_cross_section)
-  EF = CroPlotR::EF(sim = model_fit_all$pred_cross_section, obs = model_fit_all$meas_cross_section)
-  Bias = CroPlotR::Bias(sim = model_fit_all$pred_cross_section, obs = model_fit_all$meas_cross_section)
   
-  cat(paste("nrmse=",round(nrmse,3),", EF=",round(EF,3),
-            ", Bias=",round(Bias,3)))
-  bind_rows(model_fit_training,model_fit_testing)
+  list(
+    plots = list(
+      simple_model = simple_model_p,
+      corrected_comparison = correction_comparison,
+      corrected = corrected),
+    statistics = list(
+      simple_model = stats_simple_model,
+      simple_model_min_diam = stats_simple_model_min_diam,
+      corrected = stats_corrected,
+      corrected_min_diam = stats_corrected_min_diam),
+    data = data_no_na_cor
+    # NB: data is full data, with a variable called split to get the data used for training and the data 
+    # used for testing. pred_cross_section is the cross section predicted by the general model,
+    # and pred_cross_section_cor is the cross section predicted after correction.
+  )
 }

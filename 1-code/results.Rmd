@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 Set up libraries:
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 library(ggplot2)
 library(magrittr)
 library(data.table)
@@ -23,11 +23,16 @@ library(ggpubr)
 
 Load data:
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 df_mtg = fread("../2-results/data.csv", data.table = FALSE)
 # See 2-compute-data.R for details
 df_mtg$tree = stringr::str_sub(gsub("tree","",df_mtg$branch), start = 1, end = 1)
 df_mtg$branch = stringr::str_sub(gsub("tree","",df_mtg$branch), start = 2)
+
+# Treatments:
+treatments = fread("../0-data/0-raw/treatments.csv", data.table = FALSE)
+treatments$tree = as.character(treatments$tree)
+df_mtg = full_join(df_mtg, treatments, by = c("tree","branch"))
 ```
 
 ## Data analysis
@@ -56,7 +61,7 @@ df_mtg%>%
        x = "Sample volume (hydrated)")
 ```
 
-```{r include=FALSE}
+```{r include=FALSE, message=FALSE, warning=FALSE}
 Bias = CroPlotR::Bias(sim = df_mtg$volume_bh, obs = df_mtg$volume_ph)
 ```
 
@@ -65,7 +70,7 @@ This method allows for a faster estimation of the sample volume, with a low bias
 Our approach includes the bark because our objective is to evaluate the total biomass that can be exploited by pruning of branches, then including bark (it can be of interest for e.g. chemistry). 
 Removing the bark from the sample gives different estimations of the volume though, especially for bigger samples: 
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 df_mtg%>%
   ggplot(aes(x = volume_ph, y = volume_phse))+
   geom_point(aes(color = paste0(tree,", ",branch)))+
@@ -92,7 +97,7 @@ df_mtg%>%
 
 The wood density is highly variable between trees, branches and also segments. No clear trend was found with any of the available variables: 
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 df_mtg%>%
   select(branch,tree,density,segment_index_on_axis,
          axis_length,diameter,
@@ -115,7 +120,9 @@ The variability in the density appears to be linked to other variables that were
 
 ### Dimensions
 
-```{r}
+We can test the pipe model by comparing the cross section of each segment to the sum of the cross-section of the segments it bears. If the pipe model is respected, both variables should be close.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 df_mtg%>%
   ggplot(aes(x = cross_section, y = cross_sec_children))+
   geom_point(aes(color = paste0(tree,", ",branch)))+
@@ -126,18 +133,60 @@ df_mtg%>%
   labs(colour = "Tree, branch", y = "Cross section children (cm2)",
        x = "Cross section segment (cm2)")
 ```
+The plot above shows that both variables have close values, which indicates that the pipe model is respected. 
 
+In theory, this comparison can be made using any topological order, the extreme being comparing the cross section of a segment with the sum of the cross sections of the terminal segments borne by the reference segment.   
 
-```{r}
-# TODO: Add treatment info
+Here is a plot of this comparison: 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 df_mtg%>%
   ggplot(aes(x = cross_section, y = cross_sec_leaves))+
   geom_point(aes(color = paste0(tree,", ",branch)))+
   geom_abline(slope = 1, intercept = 0, lty = 2, color = "grey60")+
-  geom_smooth(method='lm', formula= y~x, aes(color = paste0(tree,", ",branch)))+
-  facet_wrap(tree ~ ., scales = "free")+
-  labs(colour = "Tree, branch", y = "Cross section leaves (cm2)",
+  geom_smooth(method='lm', formula= y~x, aes(color = tree))+
+  facet_wrap(treatment ~ ., scales = "free")+
+  labs(colour = "Tree, branch", y = "Sum of the cross section of all terminal segments (cm2)",
        x = "Cross section segment (cm2)")
+```
+
+Here we can see that this relationship holds quite well for the branches from the trees that are regularly trimmed. However, the relationship is not following the identity line in the control treatment where the branches grew freely, but the slope of the relationship is still linear, with smallest segments (i.e. the ones with the lowest cross section) having the closest cross-section compared to the sum of the cross sections of the terminal segments. This can be explained by a cumulative effect (the lower the cross section of the segment of reference, the closest to the extremity).
+
+This hypothesis is verified by the plot below that shows there is a tendency between this difference in cross sections and the total length of the segments supported by the segment.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+df_mtg%>%
+  select(cross_sec_leaves,cross_section,pathlength_subtree,branch,tree,treatment)%>%
+  na.omit()%>%
+  ggplot(aes(y = cross_sec_leaves-cross_section, x = pathlength_subtree))+
+  geom_point(aes(color = paste0(tree,", ",branch)))+
+  facet_wrap(treatment ~ .)+
+  labs(colour = "Tree, branch", y = "Difference between segment cross-section and sum of the cross sections of terminal segments (cm2)",
+       x = "pathlength_subtree (cm)")
+```
+
+Four candidate variables where chosen as potential predictors to predict the segment cross section (and then diameter). Here is a plot presenting the relationships between those variables and the cross section:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+df_mtg%>%
+  select(branch,tree,cross_section,number_leaves,pathlength_subtree,
+         segment_index_on_axis,axis_length)%>%
+  reshape2::melt(id.vars = c("tree","branch","cross_section"))%>%
+  ggplot(aes(x = cross_section, y = value, color = paste(tree,branch)))+
+  facet_grid(rows = vars(variable), cols = vars(tree,branch), scales = "free_y")+
+  geom_point()+
+  labs(colour = "Tree, branch", y = "Candidate variables used as predictors", x = "Cross section of the segment (cm)")
+```
+
+
+The number of terminal segments is a good proxy of the sum of their cross section (see plot below). This is particularly of interest considering that the cross section is the target variable to predict, while the number of terminal segments can be retrieved from LiDAR measurement.
+
+```{r}
+df_mtg%>%
+  select(branch,tree,cross_section,number_leaves,cross_sec_leaves)%>%
+  ggplot(aes(x = cross_sec_leaves, y = number_leaves, color = paste(tree,branch)))+
+  facet_wrap(tree ~ ., scales = "free_y")+
+  geom_point()
 ```
 
 

@@ -1,0 +1,13 @@
+treatment	tree	branch
+control	1	h
+control	1	l
+trimmed	2	c
+trimmed	2	h
+trimmed	2	l
+trimmed	2	l2
+trimmed	2	m
+control	3	h
+control	3	l
+trimmed	4	h
+trimmed	4	l
+trimmed	4	m
