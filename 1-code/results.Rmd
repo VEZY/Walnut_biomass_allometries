@@ -19,6 +19,7 @@ library(magrittr)
 library(data.table)
 library(tidyverse)
 library(ggpubr)
+source("0-function.R")
 ```
 
 Load data:
@@ -27,7 +28,12 @@ Load data:
 df_mtg = fread("../2-results/data.csv", data.table = FALSE)
 # See 2-compute-data.R for details
 df_mtg$tree = stringr::str_sub(gsub("tree","",df_mtg$branch), start = 1, end = 1)
+df_mtg$unique_branch = df_mtg$branch
 df_mtg$branch = stringr::str_sub(gsub("tree","",df_mtg$branch), start = 2)
+df_mtg$number_leaves[df_mtg$number_leaves==0] = 1
+df_mtg = 
+  df_mtg%>%
+  filter(!is.na(cross_section) & cross_section > 0.0)
 
 # Treatments:
 treatments = fread("../0-data/0-raw/treatments.csv", data.table = FALSE)
@@ -118,6 +124,12 @@ df_mtg%>%
 
 The variability in the density appears to be linked to other variables that were not measured in this study (e.g. biomecanics, age...).
 
+```{r message=FALSE, warning=FALSE, include=FALSE}
+avg_density = mean(df_mtg$density, na.rm = TRUE)
+```
+
+The average density across all branches is `r avg_density`.
+
 ### Dimensions
 
 We can test the pipe model by comparing the cross section of each segment to the sum of the cross-section of the segments it bears. If the pipe model is respected, both variables should be close.
@@ -181,7 +193,7 @@ df_mtg%>%
 
 The number of terminal segments is a good proxy of the sum of their cross section (see plot below). This is particularly of interest considering that the cross section is the target variable to predict, while the number of terminal segments can be retrieved from LiDAR measurement.
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 df_mtg%>%
   select(branch,tree,cross_section,number_leaves,cross_sec_leaves)%>%
   ggplot(aes(x = cross_sec_leaves, y = number_leaves, color = paste(tree,branch)))+
@@ -192,4 +204,131 @@ df_mtg%>%
 
 ## Modelling
 
+Choosing the equation:
+
+```{r}
+formula = cross_section ~ number_leaves + pathlength_subtree + segment_index_on_axis
+min_diam = 20
+```
+
+Fitting the general model:
+
+```{r}
+model = fit_model(data = df_mtg, formula = formula, min_diam = min_diam)
+```
+
+Here is the model summary:
+
+```{r}
+summary(model$model)
+```
+
+Using a branch-scale correction:
+
+```{r}
+res = apply_model_cor(data = df_mtg, model = model$model, min_diam = 20)
+```
+
+Using a cross-validation (leave-one-out) scheme to evaluate our model:
+
+```{r}
+df_cross = cross_validate(data = df_mtg, formula = formula, min_diam = min_diam)
+```
+
+The statistics:
+
+- on the whole branch:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+a = df_cross$statistics$general_model%>%
+  ungroup()%>%
+  summarise(across(where(is.numeric),mean, na.rm = TRUE))
+
+b = df_cross$statistics$corrected%>%
+  ungroup()%>%
+  summarise(across(where(is.numeric),mean, na.rm = TRUE))
+
+knitr::kable(cbind(type = c("general","corrected"),rbind(a,b)))
+```
+
+- on the segments with diameter lower or equal to `r min_diam`:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+a = df_cross$statistics$general_model_min_diam%>%
+  ungroup()%>%
+  summarise(across(where(is.numeric),mean, na.rm = TRUE))
+
+b = 
+  df_cross$statistics$corrected_min_diam%>%
+  ungroup()%>%
+  summarise(across(where(is.numeric),mean, na.rm = TRUE))
+
+knitr::kable(cbind(type = c("general","corrected"),rbind(a,b)))
+```
+
+The final prediction colored by branch compared to the measurements:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+res$plots$corrected_comparison
+```
+
+All in one plot:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+res$plots$corrected
+```
+
+### Biomass prediction
+
+It is now straightforward to predict the wood dry biomass at different scales using our model.
+
+- At the scale of the segment:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+results = res$data%>%
+  mutate(volume = length * cross_section,
+         volume_pred = length * pred_cross_section_cor,
+         biomass = volume * avg_density / 1000,
+         biomass_pred = volume_pred * avg_density  / 1000)
+  
+results%>%
+  ggplot(aes(x= biomass))+
+  geom_point(aes(y = biomass_pred, color = paste0(tree,", ",branch)))+
+  geom_abline(slope = 1, intercept = 0)+
+  labs(color = "Tree, branch", y = "Predicted dry mass (g)",
+       x = "Observed dry mass (g)")
+```
+
+- At the scale of the whole branch:
+
+```{r}
+results%>%
+  group_by(tree,branch)%>%
+  summarise(biomass_pred = sum(biomass_pred),
+            biomass = sum(biomass),
+            .groups = "keep")%>%
+  ggplot(aes(x= biomass))+
+  geom_point(aes(y = biomass_pred, color = paste0(tree,", ",branch)))+
+  geom_abline(slope = 1, intercept = 0)+
+  labs(color = "Tree, branch", y = "Predicted dry mass (kg)",
+       x = "Observed dry mass (kg)")
+```
+
+
+- And using the segments with a diameter lower or equal than `r min_diam`:
+
+```{r}
+results%>%
+  filter(diameter <= min_diam)%>%
+  group_by(tree,branch)%>%
+  summarise(biomass_pred = sum(biomass_pred),
+            biomass = sum(biomass),
+            .groups = "keep")%>%
+  ggplot(aes(x= biomass))+
+  geom_point(aes(y = biomass_pred, color = paste0(tree,", ",branch)))+
+  geom_abline(slope = 1, intercept = 0)+
+  labs(color = "Tree, branch", y = "Predicted dry mass (kg)",
+       x = "Observed dry mass (kg)")
+```
 

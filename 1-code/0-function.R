@@ -66,11 +66,11 @@ compute_data_mtg = function(mtg){
   
   # Total pathlength of sub-tree):
   mutate_mtg(mtg, pathlength_subtree = sum(descendants(attribute = "length", symbol = "S",
-                                                                  self = TRUE)), .symbol = "S")
+                                                       self = TRUE)), .symbol = "S")
   
   # Number of segments each segment bears:
   mutate_mtg(mtg, segment_subtree = length(descendants(attribute = "length", symbol = "S",
-                                                          self = TRUE)), .symbol = "S")
+                                                       self = TRUE)), .symbol = "S")
   
   # Number of leaves (terminal nodes) a node bear (i.e. all for the first, 0 for a terminal node)
   mutate_mtg(mtg, number_leaves = length(leaves(attribute = "topological_order", symbol = "S")), .symbol = "S")
@@ -88,7 +88,7 @@ compute_data_mtg = function(mtg){
   # add relative change of volume after rehydrating
   mutate_mtg(mtg, volume_delta = (node$volume_ph-node$volume_bh)/node$volume_bh,
              .symbol = "S")
-
+  
   
   # Topological order:
   topological_order(mtg,ascend = FALSE)
@@ -165,33 +165,81 @@ compute_data_mtg = function(mtg){
 #' formula = cross_section ~ number_leaves + pathlength_subtree + segment_index_on_axis + axis_length
 #' fit_model(data = df_mtg, formula = formula, min_diam = 20)
 fit_model = function(data,formula,min_diam = 20){
-
+  
   # Complete model (use all possible variables available from LiDAR):
   model = lm(formula, data = data)
-  
-  vars_in_model = names(model$coefficients)
-  vars_in_model = vars_in_model[!grepl("(Intercept)",vars_in_model)]
+  vars_in_model = all.vars(formula)
   
   data_no_na = 
     data%>%
-    select(tidyselect::all_of(c("branch","tree","cross_section","diameter",vars_in_model)))%>%
+    select(tidyselect::all_of(c("branch","tree","diameter",vars_in_model)))%>%
     filter_all(all_vars(!is.na(.)))%>%
-    mutate(pred_cross_section = predict(model, newdata = .))
+    mutate(prediction = predict(model, newdata = .))
   
   # Our simple model, without any correction:
   simple_model_p = 
     data_no_na%>%
-    # filter(diameter < min_diam)%>%
-    # filter(diameter >= min_diam)%>%
-    # filter(branch == "tree2h")%>%
-    ggplot(aes(x= cross_section, y = pred_cross_section, color = paste0(tree,", ",branch)))+
+    ggplot(aes(x= !!sym(vars_in_model[1]), y = prediction, color = paste0(tree,", ",branch)))+
     geom_point()+
     geom_abline(slope = 1, intercept = 0)
   
+  # Statistics:
+  stats_simple_model = 
+    data_no_na%>%
+    group_by(tree,branch)%>%
+    summarise(nrmse = CroPlotR::nRMSE(sim = prediction, obs = !!sym(vars_in_model[1])),
+              EF = CroPlotR::EF(sim = prediction, obs = !!sym(vars_in_model[1])),
+              Bias = CroPlotR::Bias(sim = prediction, obs = !!sym(vars_in_model[1])),
+              .groups = "keep")
+  
+  stats_simple_model_min_diam = 
+    data_no_na%>%
+    filter(diameter < min_diam)%>%
+    group_by(tree,branch)%>%
+    summarise(nrmse = CroPlotR::nRMSE(sim = prediction, obs = !!sym(vars_in_model[1])),
+              EF = CroPlotR::EF(sim = prediction, obs = !!sym(vars_in_model[1])),
+              Bias = CroPlotR::Bias(sim = prediction, obs = !!sym(vars_in_model[1])),
+              .groups = "keep")
+  
+  
+  list(
+    model = model,
+    plots = simple_model_p,
+    statistics = list(
+      simple_model = stats_simple_model,
+      simple_model_min_diam = stats_simple_model_min_diam),
+    data = data_no_na
+    # NB: data is full data, with a variable called split to get the data used for training and the data 
+    # used for testing. pred_cross_section is the cross section predicted by the general model,
+    # and pred_cross_section_cor is the cross section predicted after correction.
+  )
+}
+
+
+
+#' Apply the model with correction
+#'
+#' @param data A data.frame
+#' @param model The model fitted on data
+#' @param min_diam Minimal diameter at which the LiDAR can measure the diameters right 
+#' @return A list with the plots, stats and data.
+#' @export
+#'
+apply_model_cor = function(data,model,min_diam = 20){
+  
+  vars_in_model = all.vars(model$terms)
+  
+  data_no_na = 
+    data%>%
+    select(tidyselect::all_of(c("branch","tree","diameter","length","cross_section",vars_in_model)))%>%
+    filter_all(all_vars(!is.na(.)))%>%
+    mutate(pred_cross_section = predict(model, newdata = .))
   
   # Fitting a correction factor (alpha) for each branch on "measured" points
   # i.e. the ones that have a diameter above min_diam:
-  cor_model = ~lm(cross_section ~ 0 + pred_cross_section, data = .x)
+  formula = as.formula(paste(vars_in_model[1], "~ 0 + pred_cross_section"))
+  
+  cor_model = ~lm(formula, data = .x)
   
   data_no_na_cor = 
     data_no_na%>%
@@ -199,14 +247,16 @@ fit_model = function(data,formula,min_diam = 20){
     nest(data = c(-branch,-tree))%>%
     mutate(
       train_data = map(data, function(x) x[x$split=="train",]),
+      fit = map(train_data, possibly(~lm(formula, data = .x),otherwise = NA)),
       # test_data = map(data, function(x) x[x$split=="test",]),
-      fit = map(train_data, possibly(cor_model,otherwise = NA)),
       # cross_section_train = map(train_data, function(x) x$cross_section),
       # cross_section_test = map(test_data, function(x) x$cross_section),
       # pred_cross_section_train = map(fit, possibly(~ predict(.x), otherwise = NA)),
       # pred_cross_section_test = map2(fit,test_data, possibly(~ predict.lm(object = .x, newdata = .y), otherwise = NA)),
       diameter = map(data, function(x) x$diameter),
+      length = map(data, function(x) x$length),
       cross_section = map(data, function(x) x$cross_section),
+      cross_section_log = map(data, function(x) log(x$cross_section)),
       pred_cross_section = map(data, function(x) x$pred_cross_section),
       # pred_cross_section_cor = map(fit, possibly(~ predict(.x), otherwise = NA)),
       pred_cross_section_cor = map2(fit,data, possibly(~ predict.lm(object = .x, newdata = .y), otherwise = NA)),
@@ -214,45 +264,28 @@ fit_model = function(data,formula,min_diam = 20){
       slope = map(fit, possibly(~coef(.x)[2],otherwise = NA)),
       # tidied = map(fit, tidy)
     )%>% 
-    unnest(c(intercept,slope,diameter,cross_section,pred_cross_section,pred_cross_section_cor))%>% 
-    select(-data,-fit)%>%
-    mutate(diameter_pred = sqrt(pred_cross_section_cor/pi)*10*2)
-  
-  
-  # Statistics:
-  stats_simple_model = 
-    data_no_na_cor%>%
-    group_by(tree,branch)%>%
-    summarise(nrmse = CroPlotR::nRMSE(sim = pred_cross_section, obs = cross_section),
-              EF = CroPlotR::EF(sim = pred_cross_section, obs = cross_section),
-              Bias = CroPlotR::Bias(sim = pred_cross_section, obs = cross_section),
-              .groups = "keep")
-  
-  stats_simple_model_min_diam = 
-    data_no_na_cor%>%
-    filter(diameter < min_diam)%>%
-    group_by(tree,branch)%>%
-    summarise(nrmse = CroPlotR::nRMSE(sim = pred_cross_section, obs = cross_section),
-              EF = CroPlotR::EF(sim = pred_cross_section, obs = cross_section),
-              Bias = CroPlotR::Bias(sim = pred_cross_section, obs = cross_section),
-              .groups = "keep")
+    unnest(c(intercept,slope,diameter,length,cross_section,cross_section_log,
+             pred_cross_section,pred_cross_section_cor))%>% 
+    select(-data,-fit) #%>%
+  # mutate(diameter_pred = sqrt(pred_cross_section_cor/pi)*10*2)
   
   stats_corrected = 
     data_no_na_cor%>%
     group_by(tree,branch)%>%
-    summarise(nrmse = CroPlotR::nRMSE(sim = pred_cross_section_cor, obs = cross_section),
-              EF = CroPlotR::EF(sim = pred_cross_section_cor, obs = cross_section),
-              Bias = CroPlotR::Bias(sim = pred_cross_section_cor, obs = cross_section),
+    summarise(nrmse = CroPlotR::nRMSE(sim = pred_cross_section_cor, obs = !!sym(vars_in_model[1])),
+              EF = CroPlotR::EF(sim = pred_cross_section_cor, obs = !!sym(vars_in_model[1])),
+              Bias = CroPlotR::Bias(sim = pred_cross_section_cor, obs = !!sym(vars_in_model[1])),
               .groups = "keep")
   
   stats_corrected_min_diam = 
     data_no_na_cor%>%
     filter(diameter < min_diam)%>%
     group_by(tree,branch)%>%
-    summarise(nrmse = CroPlotR::nRMSE(sim = pred_cross_section_cor, obs = cross_section),
-              EF = CroPlotR::EF(sim = pred_cross_section_cor, obs = cross_section),
-              Bias = CroPlotR::Bias(sim = pred_cross_section_cor, obs = cross_section),
+    summarise(nrmse = CroPlotR::nRMSE(sim = pred_cross_section_cor, obs = !!sym(vars_in_model[1])),
+              EF = CroPlotR::EF(sim = pred_cross_section_cor, obs = !!sym(vars_in_model[1])),
+              Bias = CroPlotR::Bias(sim = pred_cross_section_cor, obs = !!sym(vars_in_model[1])),
               .groups = "keep")
+  
   
   # Plot to see what is the effect of the correction on each branch,
   # and what are the points used to train the correction:
@@ -261,7 +294,7 @@ fit_model = function(data,formula,min_diam = 20){
     data_no_na_cor%>%
     mutate(Point = ifelse(diameter >= min_diam, "Cor training", "Cor left out"))%>%
     # filter(branch == "tree2h")%>%
-    ggplot(aes(x= cross_section, color = Point))+
+    ggplot(aes(x= !!sym(vars_in_model[1]), color = Point))+
     facet_wrap(tree + branch ~ ., scales = "free")+
     geom_point(aes(y = pred_cross_section))+
     geom_point(aes(y = pred_cross_section_cor, color = "corrected"))+
@@ -271,23 +304,113 @@ fit_model = function(data,formula,min_diam = 20){
     data_no_na_cor%>%
     # mutate(Point = ifelse(diameter >= min_diam, "Cor training", "Cor left out"))%>%
     # filter(branch == "tree2h")%>%
-    ggplot(aes(x= cross_section))+
+    ggplot(aes(x= !!sym(vars_in_model[1])))+
     geom_point(aes(y = pred_cross_section_cor, color = "corrected"))+
     geom_abline(slope = 1, intercept = 0)
   
-  
   list(
-    model = model,
     plots = list(
-      simple_model = simple_model_p,
       corrected_comparison = correction_comparison,
       corrected = corrected),
     statistics = list(
-      simple_model = stats_simple_model,
-      simple_model_min_diam = stats_simple_model_min_diam,
       corrected = stats_corrected,
       corrected_min_diam = stats_corrected_min_diam),
     data = data_no_na_cor
+    # NB: data is full data, with a variable called split to get the data used for training and the data 
+    # used for testing. pred_cross_section is the cross section predicted by the general model,
+    # and pred_cross_section_cor is the cross section predicted after correction.
+  )
+}
+
+
+#' Model cross validation
+#'
+#' @param data A data.frame
+#' @param formula The equation for the model
+#' @param min_diam Minimal diameter at which the LiDAR can measure the diameters right 
+#' @return A list with the plots, stats and data.
+#' @export
+#'
+cross_validate = function(data,formula,min_diam){
+  
+  branches = unique(data$unique_branch)
+  
+  df_cross_val_full = vector(mode = "list", length = length(branches))
+  
+  for (i in seq_along(branches)) {
+    # Fitting the model on all branches except branch i:
+    model = fit_model(data = data%>%filter(.data$unique_branch != branches[i]),
+                      formula = formula, min_diam = min_diam)
+    
+    # Applying the model on branch i:
+    res = apply_model_cor(data = data%>%filter(.data$unique_branch == branches[i]),
+                          model = model$model, min_diam = min_diam)
+    
+    
+    # Continuer ici: on doit garder en memoire les cross_section mesurees, les cross_section 
+    # predites (soit pour toute la branche soit pour juste les petites structures), puis on 
+    # calcule les stats a la fion sur le tout (apres la fin de la cross-validation).
+    
+    df_cross_val_full[[i]] =  
+      res$data%>%
+      select(branch,tree,diameter,cross_section,pred_cross_section,pred_cross_section_cor)
+  }
+  
+  names(df_cross_val_full) = branches
+  
+  df_cross_val_full = dplyr::bind_rows(df_cross_val_full)
+  
+  
+  stats = 
+    df_cross_val_full%>%
+    group_by(tree,branch)%>%
+    summarise(nrmse = CroPlotR::nRMSE(sim = pred_cross_section, obs = cross_section),
+              EF = CroPlotR::EF(sim = pred_cross_section, obs = cross_section),
+              Bias = CroPlotR::Bias(sim = pred_cross_section, obs = cross_section),
+              .groups = "keep")
+  
+  stats_min_diam = 
+    df_cross_val_full%>%
+    filter(diameter < min_diam)%>%
+    group_by(tree,branch)%>%
+    summarise(nrmse = CroPlotR::nRMSE(sim = pred_cross_section, obs = cross_section),
+              EF = CroPlotR::EF(sim = pred_cross_section, obs = cross_section),
+              Bias = CroPlotR::Bias(sim = pred_cross_section, obs = cross_section),
+              .groups = "keep")
+  
+  stats_corrected = 
+    df_cross_val_full%>%
+    group_by(tree,branch)%>%
+    summarise(nrmse = CroPlotR::nRMSE(sim = pred_cross_section_cor, obs = cross_section),
+              EF = CroPlotR::EF(sim = pred_cross_section_cor, obs = cross_section),
+              Bias = CroPlotR::Bias(sim = pred_cross_section_cor, obs = cross_section),
+              .groups = "keep")
+  
+  stats_corrected_min_diam = 
+    df_cross_val_full%>%
+    filter(diameter < min_diam)%>%
+    group_by(tree,branch)%>%
+    summarise(nrmse = CroPlotR::nRMSE(sim = pred_cross_section_cor, obs = cross_section),
+              EF = CroPlotR::EF(sim = pred_cross_section_cor, obs = cross_section),
+              Bias = CroPlotR::Bias(sim = pred_cross_section_cor, obs = cross_section),
+              .groups = "keep")
+  
+  p = 
+    df_cross_val_full%>%
+    ggplot(aes(x= cross_section))+
+    facet_wrap(tree + branch ~ ., scales = "free")+
+    geom_point(aes(y = pred_cross_section, color = "global model"))+
+    geom_point(aes(y = pred_cross_section_cor, color = "corrected"))+
+    geom_abline(slope = 1, intercept = 0)
+  
+  list(
+    plots = p,
+    statistics = list(
+      general_model = stats,
+      general_model_min_diam = stats_min_diam,
+      corrected = stats_corrected,
+      corrected_min_diam = stats_corrected_min_diam),
+    data = df_cross_val_full
     # NB: data is full data, with a variable called split to get the data used for training and the data 
     # used for testing. pred_cross_section is the cross section predicted by the general model,
     # and pred_cross_section_cor is the cross section predicted after correction.

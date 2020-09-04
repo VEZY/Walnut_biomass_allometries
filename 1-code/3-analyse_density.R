@@ -283,7 +283,7 @@ df_mtg%>%
   dplyr::filter(density < 1.0 & density > 0.2)%>%
   ggplot(aes(x= diameter, y= dry_weight_bark/(volume_ph-volume_phse)))+
   geom_point(aes(color = factor(branch)), size=3)+
-                   ylim(0,0.6)
+  ylim(0,0.6)
 # rapport des densité écorce / bois
 df_mtg%>%
   dplyr::filter(density < 1.0 & density > 0.2)%>%
@@ -311,7 +311,7 @@ df_mtg%>%
   ggplot(aes(x= dry_weight_bark/dry_weight_wood, y= (volume_ph-volume_phse)/volume_phse))+
   geom_point(aes(color = diameter), size=3)+
   ylim(0,2)
-  scale_color_viridis_c()
+scale_color_viridis_c()
 
 
 
