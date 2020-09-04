@@ -169,8 +169,6 @@ fit_model = function(data,formula,min_diam = 20){
   # Complete model (use all possible variables available from LiDAR):
   model = lm(formula, data = data)
   
-  caret::varImp(model)
-  
   vars_in_model = names(model$coefficients)
   vars_in_model = vars_in_model[!grepl("(Intercept)",vars_in_model)]
   
@@ -227,8 +225,8 @@ fit_model = function(data,formula,min_diam = 20){
     group_by(tree,branch)%>%
     summarise(nrmse = CroPlotR::nRMSE(sim = pred_cross_section, obs = cross_section),
               EF = CroPlotR::EF(sim = pred_cross_section, obs = cross_section),
-              Bias = CroPlotR::Bias(sim = pred_cross_section, obs = cross_section)
-    )
+              Bias = CroPlotR::Bias(sim = pred_cross_section, obs = cross_section),
+              .groups = "keep")
   
   stats_simple_model_min_diam = 
     data_no_na_cor%>%
@@ -236,16 +234,16 @@ fit_model = function(data,formula,min_diam = 20){
     group_by(tree,branch)%>%
     summarise(nrmse = CroPlotR::nRMSE(sim = pred_cross_section, obs = cross_section),
               EF = CroPlotR::EF(sim = pred_cross_section, obs = cross_section),
-              Bias = CroPlotR::Bias(sim = pred_cross_section, obs = cross_section)
-    )
+              Bias = CroPlotR::Bias(sim = pred_cross_section, obs = cross_section),
+              .groups = "keep")
   
   stats_corrected = 
     data_no_na_cor%>%
     group_by(tree,branch)%>%
     summarise(nrmse = CroPlotR::nRMSE(sim = pred_cross_section_cor, obs = cross_section),
               EF = CroPlotR::EF(sim = pred_cross_section_cor, obs = cross_section),
-              Bias = CroPlotR::Bias(sim = pred_cross_section_cor, obs = cross_section)
-    )
+              Bias = CroPlotR::Bias(sim = pred_cross_section_cor, obs = cross_section),
+              .groups = "keep")
   
   stats_corrected_min_diam = 
     data_no_na_cor%>%
@@ -253,9 +251,8 @@ fit_model = function(data,formula,min_diam = 20){
     group_by(tree,branch)%>%
     summarise(nrmse = CroPlotR::nRMSE(sim = pred_cross_section_cor, obs = cross_section),
               EF = CroPlotR::EF(sim = pred_cross_section_cor, obs = cross_section),
-              Bias = CroPlotR::Bias(sim = pred_cross_section_cor, obs = cross_section)
-    )
-  
+              Bias = CroPlotR::Bias(sim = pred_cross_section_cor, obs = cross_section),
+              .groups = "keep")
   
   # Plot to see what is the effect of the correction on each branch,
   # and what are the points used to train the correction:
@@ -280,6 +277,7 @@ fit_model = function(data,formula,min_diam = 20){
   
   
   list(
+    model = model,
     plots = list(
       simple_model = simple_model_p,
       corrected_comparison = correction_comparison,
