@@ -22,9 +22,10 @@ df_mtg =
   filter(!is.na(cross_section) & cross_section > 0.0)
 
 # The formula used for the general model:
-# formula = cross_section ~ number_leaves + pathlength_subtree + 
+# formula = cross_section ~ number_leaves + pathlength_subtree +
 #   segment_index_on_axis + axis_length + segment_subtree
-formula = cross_section ~ number_leaves + pathlength_subtree + segment_index_on_axis
+# formula = cross_section ~ number_leaves + pathlength_subtree + segment_index_on_axis
+formula = cross_section ~ pathlength_subtree + segment_index_on_axis
 min_diam = 20
 
 # # Plotting the relationship between the variables used and the cross_section:
@@ -40,7 +41,9 @@ min_diam = 20
 # Fitting the general model, and applying a correction factor based on each branch to it: 
 model = fit_model(data = df_mtg, formula = formula, min_diam = min_diam)
 caret::varImp(model$model)
+summary(model$model)
 model$plots
+model$statistics
 
 # Getting the resulting plot of applying the model and correction to the full data: 
 res = apply_model_cor(data = df_mtg, model = model$model, min_diam = 20)
@@ -59,7 +62,15 @@ df_cross = cross_validate(data = df_mtg, formula = formula, min_diam = min_diam)
 
 df_cross$plots
 
+df_cross$statistics$general_model%>%
+  ungroup()%>%
+  summarise(across(where(is.numeric),mean, na.rm = TRUE))
+
 df_cross$statistics$corrected%>%
+  ungroup()%>%
+  summarise(across(where(is.numeric),mean, na.rm = TRUE))
+
+df_cross$statistics$general_model_min_diam%>%
   ungroup()%>%
   summarise(across(where(is.numeric),mean, na.rm = TRUE))
 

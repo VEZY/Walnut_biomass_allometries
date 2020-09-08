@@ -292,12 +292,14 @@ apply_model_cor = function(data,model,min_diam = 20){
   
   correction_comparison = 
     data_no_na_cor%>%
-    mutate(Point = ifelse(diameter >= min_diam, "Cor training", "Cor left out"))%>%
+    mutate(Point = ifelse(diameter >= min_diam, paste("General model, d>",min_diam,"mm"),
+                          paste("General model, d<",min_diam,"mm")),
+           branch_name = paste0("Tree ",tree,", branch ", branch))%>%
     # filter(branch == "tree2h")%>%
     ggplot(aes(x= !!sym(vars_in_model[1]), color = Point))+
-    facet_wrap(tree + branch ~ ., scales = "free")+
+    facet_wrap(branch_name ~ ., scales = "free")+
     geom_point(aes(y = pred_cross_section))+
-    geom_point(aes(y = pred_cross_section_cor, color = "corrected"))+
+    geom_point(aes(y = pred_cross_section_cor, color = "Prediction with correction"))+
     geom_abline(slope = 1, intercept = 0)
   
   corrected = 
@@ -305,7 +307,7 @@ apply_model_cor = function(data,model,min_diam = 20){
     # mutate(Point = ifelse(diameter >= min_diam, "Cor training", "Cor left out"))%>%
     # filter(branch == "tree2h")%>%
     ggplot(aes(x= !!sym(vars_in_model[1])))+
-    geom_point(aes(y = pred_cross_section_cor, color = "corrected"))+
+    geom_point(aes(y = pred_cross_section_cor, color = "Corrected model"))+
     geom_abline(slope = 1, intercept = 0)
   
   list(

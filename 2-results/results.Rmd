@@ -19,13 +19,13 @@ library(magrittr)
 library(data.table)
 library(tidyverse)
 library(ggpubr)
-source("0-function.R")
+source("../1-code/0-function.R")
 ```
 
 Load data:
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-df_mtg = fread("../2-results/data.csv", data.table = FALSE)
+df_mtg = fread("data.csv", data.table = FALSE)
 # See 2-compute-data.R for details
 df_mtg$tree = stringr::str_sub(gsub("tree","",df_mtg$branch), start = 1, end = 1)
 df_mtg$unique_branch = df_mtg$branch
@@ -56,7 +56,8 @@ We used three different methodologies for measuring the sample volume:
 Comparing the resulting volumes tells us that measuring the volume on the fresh sample gives values close to hydrated samples with bark (see fig. below)
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-df_mtg%>%
+p = 
+  df_mtg%>%
   ggplot(aes(x = volume_ph, y = volume_bh))+
   geom_point(aes(color = paste0(tree,", ",branch)))+
   geom_abline(slope = 1, intercept = 0, lty = 2, color = "grey60")+
@@ -65,6 +66,8 @@ df_mtg%>%
   stat_regline_equation(label.y = 23) +
   labs(colour = "Tree, branch", y = "Sample volume (fresh)",
        x = "Sample volume (hydrated)")
+ggsave(filename = "plots/volume_method.png",plot = p, width = 16,
+       height = 13, units = "cm",dpi = 300)
 ```
 
 ```{r include=FALSE, message=FALSE, warning=FALSE}
@@ -77,16 +80,18 @@ Our approach includes the bark because our objective is to evaluate the total bi
 Removing the bark from the sample gives different estimations of the volume though, especially for bigger samples: 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-df_mtg%>%
+p2 = 
+  df_mtg%>%
   ggplot(aes(x = volume_ph, y = volume_phse))+
   geom_point(aes(color = paste0(tree,", ",branch)))+
-  geom_abline(slope = 1, intercept = 0)+
   geom_abline(slope = 1, intercept = 0, lty = 2, color = "grey60")+
   geom_smooth(method='lm', formula= y~x)+
   stat_cor(label.y = 17, digits = 3) +
   stat_regline_equation(label.y = 16) +
   labs(colour = "Tree, branch", y = "Sample volume (hydrated, without bark, cm3)",
        x = "Sample volume (hydrated, with bark, cm3)")
+ggsave(filename = "plots/volume_method_2.png",plot = p2, width = 16,
+       height = 13, units = "cm",dpi = 300)
 ```
 
 But the difference stabilizes when we look at relative values:
@@ -104,7 +109,8 @@ df_mtg%>%
 The wood density is highly variable between trees, branches and also segments. No clear trend was found with any of the available variables: 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-df_mtg%>%
+p3 = 
+  df_mtg%>%
   select(branch,tree,density,segment_index_on_axis,
          axis_length,diameter,
          volume_subtree)%>%
@@ -120,6 +126,8 @@ df_mtg%>%
   # facet_grid(rows = vars(variable), scales = "free")+
   geom_point()+
   labs(colour = "Tree, branch", y = "Variable value")
+ggsave(filename = "plots/candidate_variables.png",plot = p3, width = 16,
+       height = 13, units = "cm",dpi = 300)
 ```
 
 The variability in the density appears to be linked to other variables that were not measured in this study (e.g. biomecanics, age...).
@@ -135,7 +143,8 @@ The average density across all branches is `r avg_density`.
 We can test the pipe model by comparing the cross section of each segment to the sum of the cross-section of the segments it bears. If the pipe model is respected, both variables should be close.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-df_mtg%>%
+p4 = 
+  df_mtg%>%
   ggplot(aes(x = cross_section, y = cross_sec_children))+
   geom_point(aes(color = paste0(tree,", ",branch)))+
   geom_abline(slope = 1, intercept = 0, lty = 2, color = "grey60")+
@@ -144,6 +153,8 @@ df_mtg%>%
   stat_regline_equation(label.y = 75) +
   labs(colour = "Tree, branch", y = "Cross section children (cm2)",
        x = "Cross section segment (cm2)")
+ggsave(filename = "plots/cross-section.png",plot = p4, width = 16,
+       height = 13, units = "cm",dpi = 300)
 ```
 The plot above shows that both variables have close values, which indicates that the pipe model is respected. 
 
@@ -152,7 +163,8 @@ In theory, this comparison can be made using any topological order, the extreme 
 Here is a plot of this comparison: 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-df_mtg%>%
+p5 =
+  df_mtg%>%
   ggplot(aes(x = cross_section, y = cross_sec_leaves))+
   geom_point(aes(color = paste0(tree,", ",branch)))+
   geom_abline(slope = 1, intercept = 0, lty = 2, color = "grey60")+
@@ -160,6 +172,8 @@ df_mtg%>%
   facet_wrap(treatment ~ ., scales = "free")+
   labs(colour = "Tree, branch", y = "Sum of the cross section of all terminal segments (cm2)",
        x = "Cross section segment (cm2)")
+ggsave(filename = "plots/cross-section_2.png",plot = p5, width = 16,
+       height = 13, units = "cm",dpi = 300)
 ```
 
 Here we can see that this relationship holds quite well for the branches from the trees that are regularly trimmed. However, the relationship is not following the identity line in the control treatment where the branches grew freely, but the slope of the relationship is still linear, with smallest segments (i.e. the ones with the lowest cross section) having the closest cross-section compared to the sum of the cross sections of the terminal segments. This can be explained by a cumulative effect (the lower the cross section of the segment of reference, the closest to the extremity).
@@ -167,38 +181,56 @@ Here we can see that this relationship holds quite well for the branches from th
 This hypothesis is verified by the plot below that shows there is a tendency between this difference in cross sections and the total length of the segments supported by the segment.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-df_mtg%>%
+p6 = 
+  df_mtg%>%
   select(cross_sec_leaves,cross_section,pathlength_subtree,branch,tree,treatment)%>%
   na.omit()%>%
   ggplot(aes(y = cross_sec_leaves-cross_section, x = pathlength_subtree))+
   geom_point(aes(color = paste0(tree,", ",branch)))+
   facet_wrap(treatment ~ .)+
-  labs(colour = "Tree, branch", y = "Difference between segment cross-section and sum of the cross sections of terminal segments (cm2)",
+  labs(colour = "Tree, branch", y = "Segment cross-section - sum of terminal segments cross sections (cm2)",
        x = "pathlength_subtree (cm)")
+ggsave(filename = "plots/cross-section_3.png",plot = p6, width = 16,
+       height = 13, units = "cm",dpi = 300)
 ```
 
 Four candidate variables where chosen as potential predictors to predict the segment cross section (and then diameter). Here is a plot presenting the relationships between those variables and the cross section:
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-df_mtg%>%
-  select(branch,tree,cross_section,number_leaves,pathlength_subtree,
+p7 = 
+  df_mtg%>%
+  select(treatment,branch,tree,cross_section,number_leaves,pathlength_subtree,
          segment_index_on_axis,axis_length)%>%
-  reshape2::melt(id.vars = c("tree","branch","cross_section"))%>%
+  reshape2::melt(id.vars = c("tree","branch","treatment","cross_section"))%>%
   ggplot(aes(x = cross_section, y = value, color = paste(tree,branch)))+
-  facet_grid(rows = vars(variable), cols = vars(tree,branch), scales = "free_y")+
+  facet_grid(rows = vars(variable), cols = vars(treatment), scales = "free_y")+
   geom_point()+
   labs(colour = "Tree, branch", y = "Candidate variables used as predictors", x = "Cross section of the segment (cm)")
+ggsave(filename = "plots/cross-section_4.png",plot = p7, width = 16,
+       height = 17, units = "cm",dpi = 300)
 ```
+
+The correlation between `pathlength_subtree` and `number_leaves` is high though:
+
+```{r}
+cor(df_mtg$pathlength_subtree, df_mtg$number_leaves, use = "pairwise.complete.obs")
+```
+
 
 
 The number of terminal segments is a good proxy of the sum of their cross section (see plot below). This is particularly of interest considering that the cross section is the target variable to predict, while the number of terminal segments can be retrieved from LiDAR measurement.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-df_mtg%>%
+p8 = 
+  df_mtg%>%
   select(branch,tree,cross_section,number_leaves,cross_sec_leaves)%>%
   ggplot(aes(x = cross_sec_leaves, y = number_leaves, color = paste(tree,branch)))+
   facet_wrap(tree ~ ., scales = "free_y")+
-  geom_point()
+  geom_point()+
+  labs(y = "Number of terminal segments", x= "cross section of the terminal segments",
+       colour = "Tree, branch")
+ggsave(filename = "plots/cross-section_5.png",plot = p8, width = 16,
+       height = 13, units = "cm",dpi = 300)
 ```
 
 
@@ -207,7 +239,7 @@ df_mtg%>%
 Choosing the equation:
 
 ```{r}
-formula = cross_section ~ number_leaves + pathlength_subtree + segment_index_on_axis
+formula = cross_section ~ pathlength_subtree + segment_index_on_axis
 min_diam = 20
 ```
 
@@ -271,39 +303,66 @@ The final prediction colored by branch compared to the measurements:
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 res$plots$corrected_comparison
+
+p9 = 
+  res$plots$corrected_comparison+
+  theme(legend.position="bottom")+
+  labs(color = "", y = "Predicted cross-section (cm2)", x = "Observed cross-section (cm2)")
+  
+  
+ggsave(filename = "plots/cross-section_6.png",plot = p9, width = 21,
+       height = 16, units = "cm",dpi = 300)
 ```
 
 All in one plot:
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-res$plots$corrected
+p10 = 
+  res$plots$corrected + 
+  theme(legend.position = "none") +
+  labs(color = "", y = "Predicted cross-section (corrected, cm2)", x = "Observed cross-section (cm2)")
+
+ggsave(filename = "plots/cross-section_7.png",plot = p10, width = 16,
+       height = 13, units = "cm",dpi = 300)
 ```
+
+Here we see that our model performs well globally for the prediction of the cross section, with a low bias (xxx) and a high modeling efficiency (xxx). Using our methodology for the correction of the general model to each branch using the exploitable data from LiDAR (diameter > 20 mm) allows a better prediction in average (Bias: before = xxx, after = xxx ; nRMSE...). Some branches particularly increased the error though, such as branch 1l or 2l (see fig xx in annex), mostly due to a skewed (deviation) relationship with the predictor variables (see fig xx about candidate variables).
 
 ### Biomass prediction
 
-It is now straightforward to predict the wood dry biomass at different scales using our model.
+It is now straightforward to predict the wood dry biomass at different scales using our model. The model is used to predict the cross section of the segments with a diameter lower or equal to `r min_diam`, as the LiDAR measures well the ones with higher dimensions. 
 
 - At the scale of the segment:
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-results = res$data%>%
+results = 
+  res$data%>%
   mutate(volume = length * cross_section,
-         volume_pred = length * pred_cross_section_cor,
+         volume_pred = length * ifelse(diameter <= min_diam,
+                                       pred_cross_section_cor,
+                                       cross_section),
          biomass = volume * avg_density / 1000,
          biomass_pred = volume_pred * avg_density  / 1000)
   
-results%>%
+p11 = 
+  results%>%
   ggplot(aes(x= biomass))+
   geom_point(aes(y = biomass_pred, color = paste0(tree,", ",branch)))+
   geom_abline(slope = 1, intercept = 0)+
-  labs(color = "Tree, branch", y = "Predicted dry mass (g)",
-       x = "Observed dry mass (g)")
+  labs(color = "Tree, branch", y = "Predicted dry mass (kg)",
+       x = "Observed dry mass (kg)")
+
+
+ggsave(filename = "plots/biomass.png",plot = p11, width = 16,
+       height = 13, units = "cm",dpi = 300)
 ```
 
 - At the scale of the whole branch:
 
-```{r}
-results%>%
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+p12 = 
+  results%>%
   group_by(tree,branch)%>%
   summarise(biomass_pred = sum(biomass_pred),
             biomass = sum(biomass),
@@ -313,13 +372,18 @@ results%>%
   geom_abline(slope = 1, intercept = 0)+
   labs(color = "Tree, branch", y = "Predicted dry mass (kg)",
        x = "Observed dry mass (kg)")
+
+ggsave(filename = "plots/biomass_2.png",plot = p12, width = 16,
+       height = 13, units = "cm",dpi = 300)
 ```
 
 
 - And using the segments with a diameter lower or equal than `r min_diam`:
 
-```{r}
-results%>%
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+p13 = 
+  results%>%
   filter(diameter <= min_diam)%>%
   group_by(tree,branch)%>%
   summarise(biomass_pred = sum(biomass_pred),
@@ -330,5 +394,34 @@ results%>%
   geom_abline(slope = 1, intercept = 0)+
   labs(color = "Tree, branch", y = "Predicted dry mass (kg)",
        x = "Observed dry mass (kg)")
+
+ggsave(filename = "plots/biomass_3.png",plot = p13, width = 16,
+       height = 13, units = "cm",dpi = 300)
+```
+
+
+The biomass of the segments with a diameter lower or equal than `r min_diam` relative to the total biomass of the branch:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+min_diam_biomass = 
+  results%>%
+  filter(diameter <= min_diam)%>%
+  group_by(tree,branch)%>%
+  summarise(biomass_min_diam = sum(biomass))
+
+total_biomass = 
+  results%>%
+  group_by(tree,branch)%>%
+  summarise(biomass_tot = sum(biomass))
+
+df_relative_biomass = 
+  dplyr::full_join(min_diam_biomass,total_biomass)%>%
+  group_by(tree,branch)%>%
+  transmute(relative_biomass = biomass_min_diam / biomass_tot)%>%
+  ungroup%>%
+  summarise(mean = mean(relative_biomass),
+            sd = sd(relative_biomass))
+
+knitr::kable(df_relative_biomass)
 ```
 
