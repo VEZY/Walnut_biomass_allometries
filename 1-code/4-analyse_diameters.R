@@ -21,8 +21,8 @@ df_mtg%>%
   geom_point(aes(color = paste0(tree,", ",branch)))+
   geom_abline(slope = 1, intercept = 0, lty = 2, color = "grey60")+
   geom_smooth(method='lm', formula= y~x)+
-  stat_cor(label.y = 80, digits = 3) +
-  stat_regline_equation(label.y = 75) +
+  # stat_cor(label.y = 80, digits = 3) +
+  # stat_regline_equation(label.y = 75) +
   labs(colour = "Tree, branch", y = "Cross section children (cm2)",
        x = "Cross section segment (cm2)")
 
@@ -143,3 +143,22 @@ ggplot(diam_terminal_segments, aes(x= branch, y = diameter))+
   geom_boxplot(aes(fill = branch))+
   geom_point()
 
+
+# Average segment diameter at extremity -----------------------------------
+
+df_mtg%>%
+  filter(.data$segment_index_on_axis == 1)%>%
+  ggplot(aes(y = diameter, x = branch))+
+  geom_boxplot()
+  # geom_point(alpha = 0.1)+
+  # geom_boxplot(alpha = 0.8,  outlier.size = 0.0, outlier.alpha = 0.0)
+
+df_mtg%>%
+  filter(.data$segment_index_on_axis == 1)%>%
+  group_by(branch)%>%
+  summarise(diam = mean(diameter, na.rm = TRUE))
+
+df_mtg%>%
+  filter(.data$segment_index_on_axis == 1)%>%
+  summarise(diam = mean(diameter, na.rm = TRUE))
+# OK, we'll use 5.7 cm for the average diameter at extremity.
