@@ -149,7 +149,8 @@ ggplot(diam_terminal_segments, aes(x= branch, y = diameter))+
 df_mtg%>%
   filter(.data$segment_index_on_axis == 1)%>%
   ggplot(aes(y = diameter, x = branch))+
-  geom_boxplot()
+  geom_boxplot()+
+  labs(y = "Segment diameter (mm)", x = "Branch")
   # geom_point(alpha = 0.1)+
   # geom_boxplot(alpha = 0.8,  outlier.size = 0.0, outlier.alpha = 0.0)
 
